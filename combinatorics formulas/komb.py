@@ -10,8 +10,11 @@ bot = telebot.TeleBot(config.TOKEN)
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    sti = open('hello.webp', 'rb')
-    bot.send_sticker(message.chat.id, sti)
+    try:
+        sti = open('hello.webp', 'rb')
+        bot.send_sticker(message.chat.id, sti)
+    except:
+        pass
     Z(message, "Привет, {0.first_name}! \nЧто хочешь подсчитать".format(message.from_user), "Количество сочетаний", "Количество перестановок", "Количество размещений")
 
 
@@ -38,8 +41,11 @@ def func(message):
     elif (message.text == "Количество размещений без повторений"):
         P(message, AB)
     else:
-        sti = open('notfound.webp', 'rb')
-        bot.send_sticker(message.chat.id, sti)
+        try:
+            sti = open('notfound.webp', 'rb')
+            bot.send_sticker(message.chat.id, sti)
+        except:
+            pass
         bot.send_message(message.chat.id, text="На такую команду я не запрограммирован..")
 
 
@@ -75,8 +81,11 @@ def F(message, txt, f):
         back = types.KeyboardButton("Вернуться в главное меню")
         markup.add(back)
         bot.send_message(message.from_user.id, 'Результат: ' + str(f(n, k)), reply_markup=markup)
-        sti = open('ok.webp', 'rb')
-        bot.send_sticker(message.chat.id, sti)
+        try:
+            sti = open('ok.webp', 'rb')
+            bot.send_sticker(message.chat.id, sti)
+        except:
+            pass
     except Exception:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         back = types.KeyboardButton("Вернуться в главное меню")
@@ -85,8 +94,11 @@ def F(message, txt, f):
         if (message.text == "Вернуться в главное меню"):
             Z(message, "Вы вернулись в главное меню", "Количество сочетаний", "Количество перестановок", "Количество размещений")
         else:
-            sti = open('error.webp', 'rb')
-            bot.send_sticker(message.chat.id, sti)
+            try:
+                sti = open('error.webp', 'rb')
+                bot.send_sticker(message.chat.id, sti)
+            except:
+                pass
             bot.send_message(message.from_user.id, 'Вы ввели данные не в правильном формате.', reply_markup=markup, parse_mode='Markdown')
 
 
@@ -99,8 +111,11 @@ def FR(message, txt, f):
         back = types.KeyboardButton("Вернуться в главное меню")
         markup.add(back)
         bot.send_message(message.from_user.id, 'Результат: ' + str(f(n)), reply_markup=markup)
-        sti = open('ok.webp', 'rb')
-        bot.send_sticker(message.chat.id, sti)
+        try:
+            sti = open('ok.webp', 'rb')
+            bot.send_sticker(message.chat.id, sti)
+        except:
+            pass
     except Exception:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         back = types.KeyboardButton("Вернуться в главное меню")
@@ -109,8 +124,11 @@ def FR(message, txt, f):
         if (message.text == "Вернуться в главное меню"):
             Z(message, "Вы вернулись в главное меню", "Количество сочетаний", "Количество перестановок", "Количество размещений")
         else:
-            sti = open('error.webp', 'rb')
-            bot.send_sticker(message.chat.id, sti)
+            try:
+                sti = open('error.webp', 'rb')
+                bot.send_sticker(message.chat.id, sti)
+            except:
+                pass
             bot.send_message(message.from_user.id, 'Вы ввели данные не в правильном формате.', reply_markup=markup, parse_mode='Markdown')
 
 
