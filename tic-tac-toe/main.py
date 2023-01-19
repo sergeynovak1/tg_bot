@@ -1,3 +1,6 @@
+import random
+import time
+
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 import config
@@ -6,6 +9,10 @@ from aiogram import Bot, Dispatcher, executor, types
 
 bot = Bot(config.TOKEN)
 dp = Dispatcher(bot)
+
+BASE_SIMBOL = '◻️'
+X_SIMBOL = '❌'
+O_SIMBOL = '⭕️'
 
 
 def get_inline_keyboard() -> InlineKeyboardMarkup:
@@ -26,17 +33,30 @@ def get_inline_keyboard() -> InlineKeyboardMarkup:
 @dp.message_handler(commands=['start'])
 async def cmd_start(message: types.Message) -> None:
     global field
-    field = ['◻️']*9
-    await message.answer(f'Твой ход',
-                         reply_markup=get_inline_keyboard())
+    field = {0: BASE_SIMBOL, 1: BASE_SIMBOL, 2: BASE_SIMBOL,
+             3: BASE_SIMBOL, 4: BASE_SIMBOL, 5: BASE_SIMBOL,
+             6: BASE_SIMBOL, 7: BASE_SIMBOL, 8: BASE_SIMBOL}
+    await message.delete()
+    await message.answer(f'Твой ход', reply_markup=get_inline_keyboard())
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data.startswith('click'))
-async def click(callback: types.CallbackQuery) -> None:
-    global field
+async def click_button(callback: types.CallbackQuery) -> None:
     index = int(callback.data[-1]) - 1
-    field[index] = '❌'
-    await callback.message.edit_text(text='Твой ход', reply_markup=get_inline_keyboard())
+    if field[index] == BASE_SIMBOL:
+        field[index] = X_SIMBOL
+        await callback.message.edit_text(text='Ход бота', reply_markup=get_inline_keyboard())
+        bot_move()
+        time.sleep(1)
+        await callback.message.edit_text(text='Твой ход', reply_markup=get_inline_keyboard())
+    else:
+        await callback.message.edit_text(text='Нельзя сходить сюда', reply_markup=get_inline_keyboard())
+
+
+def bot_move():
+    move_list = [cell for cell in field if field[cell] == BASE_SIMBOL]
+    if move_list:
+        field[random.choice(move_list)] = O_SIMBOL
 
 
 if __name__ == '__main__':
