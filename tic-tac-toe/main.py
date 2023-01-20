@@ -79,8 +79,28 @@ async def click_field_button(callback: types.CallbackQuery) -> None:
 
 def bot_move():
     move_list = [cell for cell in field if field[cell] == BASE_SIMBOL]
+    move_list_x = [cell for cell in field if field[cell] == X_SIMBOL]
     if move_list:
-        field[random.choice(move_list)] = O_SIMBOL
+        if (4 in move_list) and ((0 in move_list_x and 8 in move_list_x) or (2 in move_list_x and 6 in move_list_x) or (1 in move_list_x and 7 in move_list_x) or (3 in move_list_x and 5 in move_list_x)):
+            field[4] = O_SIMBOL
+        elif (1 in move_list) and ((0 in move_list_x and 2 in move_list_x) or (4 in move_list_x and 7 in move_list_x)):
+            field[1] = O_SIMBOL
+        elif (3 in move_list) and ((0 in move_list_x and 6 in move_list_x) or (4 in move_list_x and 5 in move_list_x)):
+            field[3] = O_SIMBOL
+        elif (5 in move_list) and ((3 in move_list_x and 4 in move_list_x) or (2 in move_list_x and 8 in move_list_x)):
+            field[5] = O_SIMBOL
+        elif (7 in move_list) and ((1 in move_list_x and 4 in move_list_x) or (6 in move_list_x and 8 in move_list_x)):
+            field[7] = O_SIMBOL
+        elif (2 in move_list) and ((0 in move_list_x and 1 in move_list_x) or (5 in move_list_x and 8 in move_list_x) or (4 in move_list_x and 6 in move_list_x)):
+            field[2] = O_SIMBOL
+        elif (0 in move_list) and ((1 in move_list_x and 2 in move_list_x) or (3 in move_list_x and 6 in move_list_x) or (4 in move_list_x and 8 in move_list_x)):
+            field[0] = O_SIMBOL
+        elif (8 in move_list) and ((0 in move_list_x and 4 in move_list_x) or (2 in move_list_x and 5 in move_list_x) or (6 in move_list_x and 7 in move_list_x)):
+            field[8] = O_SIMBOL
+        elif (6 in move_list) and ((0 in move_list_x and 3 in move_list_x) or (2 in move_list_x and 4 in move_list_x) or (7 in move_list_x and 8 in move_list_x)):
+            field[6] = O_SIMBOL
+        else:
+            field[random.choice(move_list)] = O_SIMBOL
 
 
 def check_win(symbol):
