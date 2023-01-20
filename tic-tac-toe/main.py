@@ -40,7 +40,8 @@ def get_game_inline_keyboard() -> InlineKeyboardMarkup:
 @dp.message_handler(commands=['start'])
 async def menu(message: types.Message) -> None:
     try:
-        await message.delete()
+        if message.text[0] == '/':
+            await message.delete()
     except:
         pass
     await bot.send_message(message.from_user.id, text=f'Выберите режим игры.', reply_markup=get_menu_inline_keyboard())
@@ -66,13 +67,17 @@ async def click_field_button(callback: types.CallbackQuery) -> None:
             await menu(callback)
         else:
             await callback.message.edit_text(text='Ход бота', reply_markup=get_game_inline_keyboard())
-            bot_move()
+            end_game = bot_move()
             time.sleep(1)
-            if check_win(O_SIMBOL):
-                await callback.message.edit_text(text=f'Бот выиграл!\n\nИтог игры:\n{check_win(O_SIMBOL)}')
+            if end_game:
+                await callback.message.edit_text(text=f'Ничья!\n\nИтог игры:\n{end_game}')
                 await menu(callback)
             else:
-                await callback.message.edit_text(text='Твой ход', reply_markup=get_game_inline_keyboard())
+                if check_win(O_SIMBOL):
+                    await callback.message.edit_text(text=f'Бот выиграл!\n\nИтог игры:\n{check_win(O_SIMBOL)}')
+                    await menu(callback)
+                else:
+                    await callback.message.edit_text(text='Твой ход', reply_markup=get_game_inline_keyboard())
     else:
         await callback.message.edit_text(text='Нельзя сходить сюда', reply_markup=get_game_inline_keyboard())
 
@@ -101,6 +106,10 @@ def bot_move():
             field[6] = O_SIMBOL
         else:
             field[random.choice(move_list)] = O_SIMBOL
+    else:
+        return f'{field[0]}|{field[1]}|{field[2]}\n' \
+               f'{field[3]}|{field[4]}|{field[5]}\n' \
+               f'{field[6]}|{field[7]}|{field[8]}'
 
 
 def check_win(symbol):
