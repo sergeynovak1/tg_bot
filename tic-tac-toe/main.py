@@ -39,18 +39,21 @@ def get_game_inline_keyboard() -> InlineKeyboardMarkup:
 
 @dp.message_handler(commands=['start'])
 async def menu(message: types.Message) -> None:
-    await message.answer(f'Меню', reply_markup=get_menu_inline_keyboard())
+    try:
+        await message.delete()
+    except:
+        pass
+    await bot.send_message(message.from_user.id, text=f'Выберите режим игры.', reply_markup=get_menu_inline_keyboard())
 
 
-@dp.message_handler(commands=['bot_game'])
 @dp.callback_query_handler(lambda c: c.data.startswith('bot'))
-async def cmd_start(message: types.Message) -> None:
+async def bot_game(message: types.Message) -> None:
     global field
     field = {0: BASE_SIMBOL, 1: BASE_SIMBOL, 2: BASE_SIMBOL,
              3: BASE_SIMBOL, 4: BASE_SIMBOL, 5: BASE_SIMBOL,
              6: BASE_SIMBOL, 7: BASE_SIMBOL, 8: BASE_SIMBOL}
     await bot.delete_message(message.from_user.id, message.message.message_id)
-    await bot.send_message(message.from_user.id, text=f'Выберите режим игры.', reply_markup=get_game_inline_keyboard())
+    await bot.send_message(message.from_user.id, text=f'Твой ход.', reply_markup=get_game_inline_keyboard())
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data.startswith('click'))
@@ -60,14 +63,14 @@ async def click_field_button(callback: types.CallbackQuery) -> None:
         field[index] = X_SIMBOL
         if check_win(X_SIMBOL):
             await callback.message.edit_text(text=f'Ты выиграл!\n\nИтог игры:\n{check_win(X_SIMBOL)}')
-            await bot.send_message(callback.from_user.id, text=f'Выбери режим игры', reply_markup=get_menu_inline_keyboard())
+            await menu(callback)
         else:
             await callback.message.edit_text(text='Ход бота', reply_markup=get_game_inline_keyboard())
             bot_move()
             time.sleep(1)
             if check_win(O_SIMBOL):
                 await callback.message.edit_text(text=f'Бот выиграл!\n\nИтог игры:\n{check_win(O_SIMBOL)}')
-                await bot.send_message(callback.from_user.id, text=f'Выбери режим игры', reply_markup=get_menu_inline_keyboard())
+                await menu(callback)
             else:
                 await callback.message.edit_text(text='Твой ход', reply_markup=get_game_inline_keyboard())
     else:
