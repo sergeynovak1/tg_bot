@@ -10,12 +10,19 @@ from aiogram import Bot, Dispatcher, executor, types
 bot = Bot(config.TOKEN)
 dp = Dispatcher(bot)
 
-BASE_SIMBOL = '◻️'
+BASE_SIMBOL = '◻'
 X_SIMBOL = '❌'
 O_SIMBOL = '⭕️'
 
 
-def get_inline_keyboard() -> InlineKeyboardMarkup:
+def get_menu_inline_keyboard() -> InlineKeyboardMarkup:
+    ikb = InlineKeyboardMarkup()
+    ikb.add(InlineKeyboardButton('Игра с ботом', callback_data='bot'))
+
+    return ikb
+
+
+def get_game_inline_keyboard() -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup(row_width=3)
     ikb.add(InlineKeyboardButton(field[0], callback_data='click_1'),
             InlineKeyboardButton(field[1], callback_data='click_2'),
@@ -31,32 +38,61 @@ def get_inline_keyboard() -> InlineKeyboardMarkup:
 
 
 @dp.message_handler(commands=['start'])
+async def menu(message: types.Message) -> None:
+    await message.answer(f'Меню', reply_markup=get_menu_inline_keyboard())
+
+
+@dp.message_handler(commands=['bot_game'])
+@dp.callback_query_handler(lambda c: c.data.startswith('bot'))
 async def cmd_start(message: types.Message) -> None:
     global field
     field = {0: BASE_SIMBOL, 1: BASE_SIMBOL, 2: BASE_SIMBOL,
              3: BASE_SIMBOL, 4: BASE_SIMBOL, 5: BASE_SIMBOL,
              6: BASE_SIMBOL, 7: BASE_SIMBOL, 8: BASE_SIMBOL}
-    await message.delete()
-    await message.answer(f'Твой ход', reply_markup=get_inline_keyboard())
+    await bot.delete_message(message.from_user.id, message.message.message_id)
+    await bot.send_message(message.from_user.id, text=f'Выберите режим игры.', reply_markup=get_game_inline_keyboard())
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data.startswith('click'))
-async def click_button(callback: types.CallbackQuery) -> None:
+async def click_field_button(callback: types.CallbackQuery) -> None:
     index = int(callback.data[-1]) - 1
     if field[index] == BASE_SIMBOL:
         field[index] = X_SIMBOL
-        await callback.message.edit_text(text='Ход бота', reply_markup=get_inline_keyboard())
-        bot_move()
-        time.sleep(1)
-        await callback.message.edit_text(text='Твой ход', reply_markup=get_inline_keyboard())
+        if check_win(X_SIMBOL):
+            await callback.message.edit_text(text=f'Ты выиграл!\n\nИтог игры:\n{check_win(X_SIMBOL)}')
+            await bot.send_message(callback.from_user.id, text=f'Выбери режим игры', reply_markup=get_menu_inline_keyboard())
+        else:
+            await callback.message.edit_text(text='Ход бота', reply_markup=get_game_inline_keyboard())
+            bot_move()
+            time.sleep(1)
+            if check_win(O_SIMBOL):
+                await callback.message.edit_text(text=f'Бот выиграл!\n\nИтог игры:\n{check_win(O_SIMBOL)}')
+                await bot.send_message(callback.from_user.id, text=f'Выбери режим игры', reply_markup=get_menu_inline_keyboard())
+            else:
+                await callback.message.edit_text(text='Твой ход', reply_markup=get_game_inline_keyboard())
     else:
-        await callback.message.edit_text(text='Нельзя сходить сюда', reply_markup=get_inline_keyboard())
+        await callback.message.edit_text(text='Нельзя сходить сюда', reply_markup=get_game_inline_keyboard())
 
 
 def bot_move():
     move_list = [cell for cell in field if field[cell] == BASE_SIMBOL]
     if move_list:
         field[random.choice(move_list)] = O_SIMBOL
+
+
+def check_win(symbol):
+    if (field[0] == field[1] and field[1] == field[2]  and field[2] == symbol) or \
+            (field[3] == field[4] and field[4] == field[5] and field[5] == symbol) or \
+            (field[6] == field[7] and field[7] == field[8] and field[8] == symbol) or \
+            (field[0] == field[3] and field[3] == field[6] and field[6] == symbol) or \
+            (field[1] == field[4] and field[4] == field[7] and field[7] == symbol) or \
+            (field[2] == field[5] and field[5] == field[8] and field[8] == symbol) or \
+            (field[0] == field[4] and field[4] == field[8] and field[8] == symbol) or \
+            (field[2] == field[4] and field[4] == field[6] and field[6] == symbol):
+        return f'{field[0]}|{field[1]}|{field[2]}\n' \
+               f'{field[3]}|{field[4]}|{field[5]}\n' \
+               f'{field[6]}|{field[7]}|{field[8]}'
+    return ''
 
 
 if __name__ == '__main__':
