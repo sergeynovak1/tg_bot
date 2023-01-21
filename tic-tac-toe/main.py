@@ -50,11 +50,14 @@ async def menu(message: types.Message) -> None:
 @dp.callback_query_handler(lambda c: c.data.startswith('bot'))
 async def bot_game(message: types.Message) -> None:
     global field
-    field = {0: BASE_SIMBOL, 1: BASE_SIMBOL, 2: BASE_SIMBOL,
-             3: BASE_SIMBOL, 4: BASE_SIMBOL, 5: BASE_SIMBOL,
-             6: BASE_SIMBOL, 7: BASE_SIMBOL, 8: BASE_SIMBOL}
+    field = {cell: BASE_SIMBOL for cell in range(9)}
     await bot.delete_message(message.from_user.id, message.message.message_id)
     await bot.send_message(message.from_user.id, text=f'Твой ход.', reply_markup=get_game_inline_keyboard())
+
+
+async def start_field():
+    global field
+    field = {cell: BASE_SIMBOL for cell in range(9)}
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data.startswith('click'))
