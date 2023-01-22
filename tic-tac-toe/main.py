@@ -39,7 +39,7 @@ def get_game_inline_keyboard(user_id) -> InlineKeyboardMarkup:
             InlineKeyboardButton(game_bot[user_id][6], callback_data='click_7'),
             InlineKeyboardButton(game_bot[user_id][7], callback_data='click_8'),
             InlineKeyboardButton(game_bot[user_id][8], callback_data='click_9'),
-            InlineKeyboardButton('Выйти из игры', callback_data='out_bot'))
+            InlineKeyboardButton('Выйти из игры', callback_data='out'))
     return ikb
 
 
@@ -54,7 +54,7 @@ def user_game_inline_keyboard(id) -> InlineKeyboardMarkup:
             InlineKeyboardButton(game_now[id][6], callback_data='uclick_7'),
             InlineKeyboardButton(game_now[id][7], callback_data='uclick_8'),
             InlineKeyboardButton(game_now[id][8], callback_data='uclick_9'),
-            InlineKeyboardButton('Выйти из игры', callback_data='out_user'))
+            InlineKeyboardButton('Сдаться', callback_data='out'))
     return ikb
 
 
@@ -92,10 +92,12 @@ async def click_field_button(callback: types.CallbackQuery) -> None:
             if end_game:
                 await callback.message.edit_text(text=f'Ничья!\n\nИтог игры:\n{end_game}')
                 await menu(callback)
+                del game_bot[callback.from_user.id]
             else:
                 if check_win(O_SIMBOL, callback.from_user.id):
                     await callback.message.edit_text(text=f'Бот выиграл!\n\nИтог игры:\n{check_win(O_SIMBOL, callback.from_user.id)}')
                     await menu(callback)
+                    del game_bot[callback.from_user.id]
                 else:
                     await callback.message.edit_text(text='Твой ход', reply_markup=get_game_inline_keyboard(callback.from_user.id))
     else:
@@ -294,8 +296,29 @@ async def click_field_button(callback: types.CallbackQuery) -> None:
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data.startswith('out'))
-async def click_field_button(callback: types.CallbackQuery) -> None:
-    pass
+async def user_out(callback: types.CallbackQuery) -> None:
+    if callback.from_user.id in game_bot:
+        await bot.delete_message(callback.from_user.id, callback.message.message_id)
+        await menu(callback)
+        del game_bot[callback.from_user.id]
+    else:
+        if game_now[game_id][X_SIMBOL]['user'] == callback.from_user.id:
+            win = O_SIMBOL
+            lose = X_SIMBOL
+        else:
+            win = X_SIMBOL
+            lose = O_SIMBOL
+        await bot.edit_message_text(chat_id=game_now[game_id][win]['user'], message_id=game_now[game_id][win]['message'],
+                                        text=f'Соперник сдался!')
+        await bot.edit_message_text(chat_id=game_now[game_id][lose]['user'], message_id=game_now[game_id][lose]['message'],
+                                    text=f'Вы сдались')
+        await bot.send_message(game_now[game_id][X_SIMBOL]['user'], text=f'Выберите режим игры.',
+                               reply_markup=get_menu_inline_keyboard())
+        await bot.send_message(game_now[game_id][O_SIMBOL]['user'], text=f'Выберите режим игры.',
+                               reply_markup=get_menu_inline_keyboard())
+        del game[game_now[game_id][X_SIMBOL]['user']]
+        del game[game_now[game_id][O_SIMBOL]['user']]
+        del game_now[game_id]
 
 
 def u_check_win(symbol, game_id):
