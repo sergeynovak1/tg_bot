@@ -16,6 +16,7 @@ O_SIMBOL = '⭕️'
 wait_user = []
 game = {}
 game_now = []
+game_bot = {}
 
 
 def get_menu_inline_keyboard() -> InlineKeyboardMarkup:
@@ -26,17 +27,17 @@ def get_menu_inline_keyboard() -> InlineKeyboardMarkup:
     return ikb
 
 
-def get_game_inline_keyboard() -> InlineKeyboardMarkup:
+def get_game_inline_keyboard(user_id) -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup(row_width=3)
-    ikb.add(InlineKeyboardButton(field[0], callback_data='click_1'),
-            InlineKeyboardButton(field[1], callback_data='click_2'),
-            InlineKeyboardButton(field[2], callback_data='click_3'),
-            InlineKeyboardButton(field[3], callback_data='click_4'),
-            InlineKeyboardButton(field[4], callback_data='click_5'),
-            InlineKeyboardButton(field[5], callback_data='click_6'),
-            InlineKeyboardButton(field[6], callback_data='click_7'),
-            InlineKeyboardButton(field[7], callback_data='click_8'),
-            InlineKeyboardButton(field[8], callback_data='click_9'))
+    ikb.add(InlineKeyboardButton(game_bot[user_id][0], callback_data='click_1'),
+            InlineKeyboardButton(game_bot[user_id][1], callback_data='click_2'),
+            InlineKeyboardButton(game_bot[user_id][2], callback_data='click_3'),
+            InlineKeyboardButton(game_bot[user_id][3], callback_data='click_4'),
+            InlineKeyboardButton(game_bot[user_id][4], callback_data='click_5'),
+            InlineKeyboardButton(game_bot[user_id][5], callback_data='click_6'),
+            InlineKeyboardButton(game_bot[user_id][6], callback_data='click_7'),
+            InlineKeyboardButton(game_bot[user_id][7], callback_data='click_8'),
+            InlineKeyboardButton(game_bot[user_id][8], callback_data='click_9'))
 
     return ikb
 
@@ -53,10 +54,11 @@ async def menu(message: types.Message) -> None:
 
 @dp.callback_query_handler(lambda c: c.data.startswith('bot'))
 async def bot_game(message: types.Message) -> None:
-    global field
+    global field, game_bot
     field = {cell: BASE_SIMBOL for cell in range(9)}
+    game_bot[message.from_user.id] = field
     await bot.delete_message(message.from_user.id, message.message.message_id)
-    await bot.send_message(message.from_user.id, text=f'Твой ход.', reply_markup=get_game_inline_keyboard())
+    await bot.send_message(message.from_user.id, text=f'Твой ход.', reply_markup=get_game_inline_keyboard(message.from_user.id))
 
 
 def start_field():
@@ -92,102 +94,104 @@ async def start_game(message):
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data.startswith('click'))
 async def click_field_button(callback: types.CallbackQuery) -> None:
+    global game_bot
     index = int(callback.data[-1]) - 1
-    if field[index] == BASE_SIMBOL:
-        field[index] = X_SIMBOL
-        if check_win(X_SIMBOL):
-            await callback.message.edit_text(text=f'Ты выиграл!\n\nИтог игры:\n{check_win(X_SIMBOL)}')
+    if game_bot[callback.from_user.id][index] == BASE_SIMBOL:
+        game_bot[callback.from_user.id][index] = X_SIMBOL
+        if check_win(X_SIMBOL, callback.from_user.id) != '':
+            await callback.message.edit_text(text=f'Ты выиграл!\n\nИтог игры:\n{check_win(X_SIMBOL, callback.from_user.id)}')
             await menu(callback)
         else:
-            await callback.message.edit_text(text='Ход бота', reply_markup=get_game_inline_keyboard())
-            end_game = bot_move()
+            await callback.message.edit_text(text='Ход бота', reply_markup=get_game_inline_keyboard(callback.from_user.id))
+            end_game = await bot_move(callback)
             time.sleep(1)
             if end_game:
                 await callback.message.edit_text(text=f'Ничья!\n\nИтог игры:\n{end_game}')
                 await menu(callback)
             else:
-                if check_win(O_SIMBOL):
-                    await callback.message.edit_text(text=f'Бот выиграл!\n\nИтог игры:\n{check_win(O_SIMBOL)}')
+                if check_win(O_SIMBOL, callback.from_user.id):
+                    await callback.message.edit_text(text=f'Бот выиграл!\n\nИтог игры:\n{check_win(O_SIMBOL, callback.from_user.id)}')
                     await menu(callback)
                 else:
-                    await callback.message.edit_text(text='Твой ход', reply_markup=get_game_inline_keyboard())
+                    await callback.message.edit_text(text='Твой ход', reply_markup=get_game_inline_keyboard(callback.from_user.id))
     else:
-        await callback.message.edit_text(text='Нельзя сходить сюда', reply_markup=get_game_inline_keyboard())
+        await callback.message.edit_text(text='Нельзя сходить сюда', reply_markup=get_game_inline_keyboard(callback.from_user.id))
 
 
-def bot_move():
-    move_list = [cell for cell in field if field[cell] == BASE_SIMBOL]
-    move_list_x = [cell for cell in field if field[cell] == X_SIMBOL]
-    move_list_o = [cell for cell in field if field[cell] == O_SIMBOL]
+async def bot_move(callback):
+    move_list = [cell for cell in game_bot[callback.from_user.id] if game_bot[callback.from_user.id][cell] == BASE_SIMBOL]
+    move_list_x = [cell for cell in game_bot[callback.from_user.id] if game_bot[callback.from_user.id][cell] == X_SIMBOL]
+    move_list_o = [cell for cell in game_bot[callback.from_user.id] if game_bot[callback.from_user.id][cell] == O_SIMBOL]
 
     if move_list:
         if (4 in move_list) and ((0 in move_list_o and 8 in move_list_o) or (2 in move_list_o and 6 in move_list_o) or
                                  (1 in move_list_o and 7 in move_list_o) or (3 in move_list_o and 5 in move_list_o)):
-            field[4] = O_SIMBOL
+            game_bot[callback.from_user.id][4] = O_SIMBOL
         elif (2 in move_list) and ((0 in move_list_o and 1 in move_list_o) or (5 in move_list_o and 8 in move_list_o) or
                                    (4 in move_list_o and 6 in move_list_o)):
-            field[2] = O_SIMBOL
+            game_bot[callback.from_user.id][2] = O_SIMBOL
         elif (0 in move_list) and ((1 in move_list_o and 2 in move_list_o) or (3 in move_list_o and 6 in move_list_o) or
                                    (4 in move_list_o and 8 in move_list_o)):
-            field[0] = O_SIMBOL
+            game_bot[callback.from_user.id][0] = O_SIMBOL
         elif (8 in move_list) and ((0 in move_list_o and 4 in move_list_o) or (2 in move_list_o and 5 in move_list_o) or
                                    (6 in move_list_o and 7 in move_list_o)):
-            field[8] = O_SIMBOL
+            game_bot[callback.from_user.id][8] = O_SIMBOL
         elif (6 in move_list) and ((0 in move_list_o and 3 in move_list_o) or (2 in move_list_o and 4 in move_list_o) or
                                    (7 in move_list_o and 8 in move_list_o)):
-            field[6] = O_SIMBOL
+            game_bot[callback.from_user.id][6] = O_SIMBOL
         elif (1 in move_list) and ((0 in move_list_o and 2 in move_list_o) or (4 in move_list_o and 7 in move_list_o)):
-            field[1] = O_SIMBOL
+            game_bot[callback.from_user.id][1] = O_SIMBOL
         elif (3 in move_list) and ((0 in move_list_o and 6 in move_list_o) or (4 in move_list_o and 5 in move_list_o)):
-            field[3] = O_SIMBOL
+            game_bot[callback.from_user.id][3] = O_SIMBOL
         elif (5 in move_list) and ((3 in move_list_o and 4 in move_list_o) or (2 in move_list_o and 8 in move_list_o)):
-            field[5] = O_SIMBOL
+            game_bot[callback.from_user.id][5] = O_SIMBOL
         elif (7 in move_list) and ((1 in move_list_o and 4 in move_list_o) or (6 in move_list_o and 8 in move_list_o)):
-            field[7] = O_SIMBOL
+            game_bot[callback.from_user.id][7] = O_SIMBOL
         elif (4 in move_list) and ((0 in move_list_x and 8 in move_list_x) or (2 in move_list_x and 6 in move_list_x) or
                                    (1 in move_list_x and 7 in move_list_x) or (3 in move_list_x and 5 in move_list_x)):
-            field[4] = O_SIMBOL
+            game_bot[callback.from_user.id][4] = O_SIMBOL
         elif (2 in move_list) and ((0 in move_list_x and 1 in move_list_x) or (5 in move_list_x and 8 in move_list_x) or
                                    (4 in move_list_x and 6 in move_list_x)):
-            field[2] = O_SIMBOL
+            game_bot[callback.from_user.id][2] = O_SIMBOL
         elif (0 in move_list) and ((1 in move_list_x and 2 in move_list_x) or (3 in move_list_x and 6 in move_list_x) or
                                    (4 in move_list_x and 8 in move_list_x)):
-            field[0] = O_SIMBOL
+            game_bot[callback.from_user.id][0] = O_SIMBOL
         elif (8 in move_list) and ((0 in move_list_x and 4 in move_list_x) or (2 in move_list_x and 5 in move_list_x) or
                                    (6 in move_list_x and 7 in move_list_x)):
-            field[8] = O_SIMBOL
+            game_bot[callback.from_user.id][8] = O_SIMBOL
         elif (6 in move_list) and ((0 in move_list_x and 3 in move_list_x) or (2 in move_list_x and 4 in move_list_x) or
                                    (7 in move_list_x and 8 in move_list_x)):
-            field[6] = O_SIMBOL
+            game_bot[callback.from_user.id][6] = O_SIMBOL
         elif (1 in move_list) and ((0 in move_list_x and 2 in move_list_x) or (4 in move_list_x and 7 in move_list_x)):
-            field[1] = O_SIMBOL
+            game_bot[callback.from_user.id][1] = O_SIMBOL
         elif (3 in move_list) and ((0 in move_list_x and 6 in move_list_x) or (4 in move_list_x and 5 in move_list_x)):
-            field[3] = O_SIMBOL
+            game_bot[callback.from_user.id][3] = O_SIMBOL
         elif (5 in move_list) and ((3 in move_list_x and 4 in move_list_x) or (2 in move_list_x and 8 in move_list_x)):
-            field[5] = O_SIMBOL
+            game_bot[callback.from_user.id][5] = O_SIMBOL
         elif (7 in move_list) and ((1 in move_list_x and 4 in move_list_x) or (6 in move_list_x and 8 in move_list_x)):
-            field[7] = O_SIMBOL
+            game_bot[callback.from_user.id][7] = O_SIMBOL
         else:
-            field[random.choice(move_list)] = O_SIMBOL
+            game_bot[callback.from_user.id][random.choice(move_list)] = O_SIMBOL
     else:
-        return f'{field[0]}|{field[1]}|{field[2]}\n' \
-               f'{field[3]}|{field[4]}|{field[5]}\n' \
-               f'{field[6]}|{field[7]}|{field[8]}'
+        return f'{game_bot[callback.from_user.id][0]}|{game_bot[callback.from_user.id][1]}|{game_bot[callback.from_user.id][2]}\n' \
+               f'{game_bot[callback.from_user.id][3]}|{game_bot[callback.from_user.id][4]}|{game_bot[callback.from_user.id][5]}\n' \
+               f'{game_bot[callback.from_user.id][6]}|{game_bot[callback.from_user.id][7]}|{game_bot[callback.from_user.id][8]}'
 
 
-def check_win(symbol):
-    if (field[0] == field[1] and field[1] == field[2] and field[2] == symbol) or \
-            (field[3] == field[4] and field[4] == field[5] and field[5] == symbol) or \
-            (field[6] == field[7] and field[7] == field[8] and field[8] == symbol) or \
-            (field[0] == field[3] and field[3] == field[6] and field[6] == symbol) or \
-            (field[1] == field[4] and field[4] == field[7] and field[7] == symbol) or \
-            (field[2] == field[5] and field[5] == field[8] and field[8] == symbol) or \
-            (field[0] == field[4] and field[4] == field[8] and field[8] == symbol) or \
-            (field[2] == field[4] and field[4] == field[6] and field[6] == symbol):
-        return f'{field[0]}|{field[1]}|{field[2]}\n' \
-               f'{field[3]}|{field[4]}|{field[5]}\n' \
-               f'{field[6]}|{field[7]}|{field[8]}'
-    return ''
+def check_win(symbol, user_id):
+    if (game_bot[user_id][0] == game_bot[user_id][1] and game_bot[user_id][1] == game_bot[user_id][2] and game_bot[user_id][2] == symbol) or \
+            (game_bot[user_id][3] == game_bot[user_id][4] and game_bot[user_id][4] == game_bot[user_id][5] and game_bot[user_id][5] == symbol) or \
+            (game_bot[user_id][6] == game_bot[user_id][7] and game_bot[user_id][7] == game_bot[user_id][8] and game_bot[user_id][8] == symbol) or \
+            (game_bot[user_id][0] == game_bot[user_id][3] and game_bot[user_id][3] == game_bot[user_id][6] and game_bot[user_id][6] == symbol) or \
+            (game_bot[user_id][1] == game_bot[user_id][4] and game_bot[user_id][4] == game_bot[user_id][7] and game_bot[user_id][7] == symbol) or \
+            (game_bot[user_id][2] == game_bot[user_id][5] and game_bot[user_id][5] == game_bot[user_id][8] and game_bot[user_id][8] == symbol) or \
+            (game_bot[user_id][0] == game_bot[user_id][4] and game_bot[user_id][4] == game_bot[user_id][8] and game_bot[user_id][8] == symbol) or \
+            (game_bot[user_id][2] == game_bot[user_id][4] and game_bot[user_id][4] == game_bot[user_id][6] and game_bot[user_id][6] == symbol):
+        return f'{game_bot[user_id][0]}|{game_bot[user_id][1]}|{game_bot[user_id][2]}\n' \
+               f'{game_bot[user_id][3]}|{game_bot[user_id][4]}|{game_bot[user_id][5]}\n' \
+               f'{game_bot[user_id][6]}|{game_bot[user_id][7]}|{game_bot[user_id][8]}'
+    return f''
+
 
 
 if __name__ == '__main__':
