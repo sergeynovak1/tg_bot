@@ -54,16 +54,10 @@ async def menu(message: types.Message) -> None:
 
 @dp.callback_query_handler(lambda c: c.data.startswith('bot'))
 async def bot_game(message: types.Message) -> None:
-    global field, game_bot
     field = {cell: BASE_SIMBOL for cell in range(9)}
     game_bot[message.from_user.id] = field
     await bot.delete_message(message.from_user.id, message.message.message_id)
     await bot.send_message(message.from_user.id, text=f'Твой ход.', reply_markup=get_game_inline_keyboard(message.from_user.id))
-
-
-def start_field():
-    global field
-    field = {cell: BASE_SIMBOL for cell in range(9)}
 
 
 @dp.callback_query_handler(lambda c: c.data.startswith('user'))
@@ -116,6 +110,7 @@ async def click_field_button(callback: types.CallbackQuery) -> None:
                     await callback.message.edit_text(text='Твой ход', reply_markup=get_game_inline_keyboard(callback.from_user.id))
     else:
         await callback.message.edit_text(text='Нельзя сходить сюда', reply_markup=get_game_inline_keyboard(callback.from_user.id))
+    print(game_bot)
 
 
 async def bot_move(callback):
@@ -179,14 +174,15 @@ async def bot_move(callback):
 
 
 def check_win(symbol, user_id):
-    if (game_bot[user_id][0] == game_bot[user_id][1] and game_bot[user_id][1] == game_bot[user_id][2] and game_bot[user_id][2] == symbol) or \
-            (game_bot[user_id][3] == game_bot[user_id][4] and game_bot[user_id][4] == game_bot[user_id][5] and game_bot[user_id][5] == symbol) or \
-            (game_bot[user_id][6] == game_bot[user_id][7] and game_bot[user_id][7] == game_bot[user_id][8] and game_bot[user_id][8] == symbol) or \
-            (game_bot[user_id][0] == game_bot[user_id][3] and game_bot[user_id][3] == game_bot[user_id][6] and game_bot[user_id][6] == symbol) or \
-            (game_bot[user_id][1] == game_bot[user_id][4] and game_bot[user_id][4] == game_bot[user_id][7] and game_bot[user_id][7] == symbol) or \
-            (game_bot[user_id][2] == game_bot[user_id][5] and game_bot[user_id][5] == game_bot[user_id][8] and game_bot[user_id][8] == symbol) or \
-            (game_bot[user_id][0] == game_bot[user_id][4] and game_bot[user_id][4] == game_bot[user_id][8] and game_bot[user_id][8] == symbol) or \
-            (game_bot[user_id][2] == game_bot[user_id][4] and game_bot[user_id][4] == game_bot[user_id][6] and game_bot[user_id][6] == symbol):
+    move_list = [cell for cell in game_bot[user_id] if game_bot[user_id][cell] == symbol]
+    if (0 in move_list and 1 in move_list and 2 in move_list) or \
+            (3 in move_list and 4 in move_list and 5 in move_list) or \
+            (6 in move_list and 7 in move_list and 8 in move_list) or \
+            (0 in move_list and 3 in move_list and 6 in move_list) or \
+            (1 in move_list and 4 in move_list and 7 in move_list) or \
+            (2 in move_list and 5 in move_list and 8 in move_list) or \
+            (0 in move_list and 4 in move_list and 8 in move_list) or \
+            (2 in move_list and 4 in move_list and 6 in move_list):
         return f'{game_bot[user_id][0]}|{game_bot[user_id][1]}|{game_bot[user_id][2]}\n' \
                f'{game_bot[user_id][3]}|{game_bot[user_id][4]}|{game_bot[user_id][5]}\n' \
                f'{game_bot[user_id][6]}|{game_bot[user_id][7]}|{game_bot[user_id][8]}'
