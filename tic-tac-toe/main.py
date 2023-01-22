@@ -110,7 +110,6 @@ async def click_field_button(callback: types.CallbackQuery) -> None:
                     await callback.message.edit_text(text='Твой ход', reply_markup=get_game_inline_keyboard(callback.from_user.id))
     else:
         await callback.message.edit_text(text='Нельзя сходить сюда', reply_markup=get_game_inline_keyboard(callback.from_user.id))
-    print(game_bot)
 
 
 async def bot_move(callback):
