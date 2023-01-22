@@ -185,75 +185,108 @@ async def user_game(message: types.Message) -> None:
         if message.from_user.id not in wait_user:
             wait_user.append(message.from_user.id)
         if len(wait_user) == 1:
-            await bot.delete_message(message.from_user.id, message.message.message_id)
-            global wait_user_id, wait_message
-            wait_message = await bot.send_message(message.from_user.id, text=f'Ожидаем соперника.')
+            global wait_message_id, wait_user_id
+            wait_message_id = message.message.message_id
             wait_user_id = message.from_user.id
+            await bot.edit_message_text(chat_id=wait_user_id, message_id=wait_message_id, text=f'Ожидаем соперника.')
         elif len(wait_user) == 2:
-            await start_game(message)
+            await start_game(message, wait_user_id, wait_message_id)
 
 
-async def start_game(message):
-    await bot.delete_message(message.from_user.id, message.message.message_id)
-    await bot.delete_message(wait_user_id, wait_message.message_id)
+async def start_game(message, wait_user_id, wait_message_id):
     global game_id, wait_user
     game_id += 1
-    for user in wait_user:
+    #надо подумать
+    for user in wait_user[:2]:
         if user in game:
             del game[wait_user]
-    game[wait_user[0]] = [wait_user[1], game_id]
-    game[wait_user[1]] = [wait_user[0], game_id]
-    field = {cell: BASE_SIMBOL for cell in range(9)}
-    field['player'] = wait_user[0]
-    field['X'] = wait_user[0]
-    field['0'] = wait_user[1]
+    #над этой проверкой
+    game[wait_user[0]] = game_id
+    game[wait_user[1]] = game_id
     wait_user = wait_user[2:]
+    field = {cell: BASE_SIMBOL for cell in range(9)}
+    field['player'] = wait_user_id
+    field[X_SIMBOL] = {'user': wait_user_id, 'message': wait_message_id}
+    field[O_SIMBOL] = {'user': message.from_user.id, 'message': message.message.message_id}
     game_now[game_id] = field
-    mes = await bot.send_message(message.from_user.id, text=f'Соперник найден.\nХод соперника.', reply_markup=user_game_inline_keyboard(game_id))
-    await bot.send_message(game[message.from_user.id][0], text=f'Соперник найден.\nТвой ход.', reply_markup=user_game_inline_keyboard(game_id))
-    game_now[game_id]['message'] = mes.message_id
+    await bot.edit_message_text(chat_id=game_now[game_id][O_SIMBOL]['user'], message_id=game_now[game_id][O_SIMBOL]['message'],
+                                text=f'Соперник найден.\nХод соперника.', reply_markup=user_game_inline_keyboard(game_id))
+    await bot.edit_message_text(chat_id=game_now[game_id][X_SIMBOL]['user'], message_id=game_now[game_id][X_SIMBOL]['message'],
+                                text=f'Соперник найден.\nТвой ход.', reply_markup=user_game_inline_keyboard(game_id))
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data.startswith('uclick'))
 async def click_field_button(callback: types.CallbackQuery) -> None:
     index = int(callback.data[-1]) - 1
-    game_id = game[callback.from_user.id][1]
+    game_id = game[callback.from_user.id]
     if game_now[game_id]['player'] == callback.from_user.id:
         if game_now[game_id][index] == BASE_SIMBOL:
-            if game_now[game_id]['X'] == callback.from_user.id:
+            if game_now[game_id][X_SIMBOL]['user'] == callback.from_user.id:
                 game_now[game_id][index] = X_SIMBOL
                 symbol = X_SIMBOL
-            elif game_now[game_id]['0'] == callback.from_user.id:
+                if u_check_win(symbol, game_id):
+                    await bot.edit_message_text(chat_id=game_now[game_id][X_SIMBOL]['user'],
+                                                message_id=game_now[game_id][X_SIMBOL]['message'],
+                                                text=f'Ты выиграл!\n\nИтог игры:\n{u_check_win(symbol, game_id)}')
+                    await bot.edit_message_text(chat_id=game_now[game_id][O_SIMBOL]['user'],
+                                                message_id=game_now[game_id][O_SIMBOL]['message'],
+                                                text=f'Соперник выиграл!\n\nИтог игры:\n{u_check_win(symbol, game_id)}')
+                    await menu(callback)
+                    await bot.send_message(game_now[game_id][O_SIMBOL]['user'], text=f'Выберите режим игры.',
+                                           reply_markup=get_menu_inline_keyboard())
+                    del game[game_now[game_id][X_SIMBOL]['user']]
+                    del game[game_now[game_id][O_SIMBOL]['user']]
+                    del game_now[game_id]
+            elif game_now[game_id][O_SIMBOL]['user'] == callback.from_user.id:
                 game_now[game_id][index] = O_SIMBOL
                 symbol = O_SIMBOL
-            if u_check_win(symbol, game_id):
-                await callback.message.edit_text(text=f'Ты выиграл!\n\nИтог игры:\n{u_check_win(symbol, game_id)}')
-                await bot.send_message(game[callback.from_user.id][0],
-                                       text=f'Соперник выиграл!\n\nИтог игры:\n{u_check_win(symbol, game_id)}')
-                await menu(callback)
-                await bot.send_message(game[callback.from_user.id][0], text=f'Выберите режим игры.',
-                                       reply_markup=get_menu_inline_keyboard())
-                del game[game[callback.from_user.id][0]]
-                del game[callback.from_user.id]
-                del game_now[game_id]
-            elif u_check_end_game(game_id):
-                await callback.message.edit_text(text=f'Ничья!\n\nИтог игры:\n{u_check_end_game(game_id)}')
-                await bot.send_message(game[callback.from_user.id][0],
-                                       text=f'Ничья!\n\nИтог игры:\n{u_check_end_game(game_id)}')
-                await menu(callback)
-                await bot.send_message(game[callback.from_user.id][0], text=f'Выберите режим игры.',
-                                       reply_markup=get_menu_inline_keyboard())
-                del game[game[callback.from_user.id][0]]
-                del game[callback.from_user.id]
-                del game_now[game_id]
-            else:
-                await bot.send_message(game[callback.from_user.id][0], text=f'Твой ход.',
-                                   reply_markup=user_game_inline_keyboard(game_id))
-                await bot.delete_message(game[callback.from_user.id][0], game_now[game_id]['message'])
-                mes = await callback.message.edit_text(text=f'Ход соперника.',
-                                             reply_markup=user_game_inline_keyboard(game_id))
-                game_now[game_id]['message'] = mes.message_id
-                game_now[game_id]['player'] = game[game_now[game_id]['player']][0]
+                if u_check_win(symbol, game_id):
+                    await bot.edit_message_text(chat_id=game_now[game_id][O_SIMBOL]['user'],
+                                                message_id=game_now[game_id][O_SIMBOL]['message'],
+                                                text=f'Ты выиграл!\n\nИтог игры:\n{u_check_win(symbol, game_id)}')
+                    await bot.edit_message_text(chat_id=game_now[game_id][X_SIMBOL]['user'],
+                                                message_id=game_now[game_id][X_SIMBOL]['message'],
+                                                text=f'Соперник выиграл!\n\nИтог игры:\n{u_check_win(symbol, game_id)}')
+                    await menu(callback)
+                    await bot.send_message(game_now[game_id][X_SIMBOL]['user'], text=f'Выберите режим игры.',
+                                           reply_markup=get_menu_inline_keyboard())
+                    del game[game_now[game_id][X_SIMBOL]['user']]
+                    del game[game_now[game_id][O_SIMBOL]['user']]
+                    del game_now[game_id]
+            if game_id in game_now:
+                if u_check_end_game(game_id):
+                    await bot.edit_message_text(chat_id=game_now[game_id][O_SIMBOL]['user'],
+                                                message_id=game_now[game_id][O_SIMBOL]['message'],
+                                                text=f'Ничья!\n\nИтог игры:\n{u_check_end_game(game_id)}')
+                    await bot.edit_message_text(chat_id=game_now[game_id][X_SIMBOL]['user'],
+                                                message_id=game_now[game_id][X_SIMBOL]['message'],
+                                                text=f'Ничья!\n\nИтог игры:\n{u_check_end_game(game_id)}')
+                    await bot.send_message(game_now[game_id][O_SIMBOL]['user'], text=f'Выберите режим игры.',
+                                           reply_markup=get_menu_inline_keyboard())
+                    await bot.send_message(game_now[game_id][X_SIMBOL]['user'], text=f'Выберите режим игры.',
+                                           reply_markup=get_menu_inline_keyboard())
+                    del game[game_now[game_id][X_SIMBOL]['user']]
+                    del game[game_now[game_id][O_SIMBOL]['user']]
+                    del game_now[game_id]
+                else:
+                    if game_now[game_id][X_SIMBOL]['user'] == callback.from_user.id:
+                        await bot.edit_message_text(chat_id=game_now[game_id][O_SIMBOL]['user'],
+                                                    message_id=game_now[game_id][O_SIMBOL]['message'],
+                                                    text=f'Твой ход.', reply_markup=user_game_inline_keyboard(game_id))
+                        await bot.edit_message_text(chat_id=game_now[game_id][X_SIMBOL]['user'],
+                                                    message_id=game_now[game_id][X_SIMBOL]['message'],
+                                                    text=f'Ход соперника.',
+                                                    reply_markup=user_game_inline_keyboard(game_id))
+                        game_now[game_id]['player'] = game_now[game_id][O_SIMBOL]['user']
+                    elif game_now[game_id][O_SIMBOL]['user'] == callback.from_user.id:
+                        await bot.edit_message_text(chat_id=game_now[game_id][X_SIMBOL]['user'],
+                                                    message_id=game_now[game_id][X_SIMBOL]['message'],
+                                                    text=f'Твой ход.', reply_markup=user_game_inline_keyboard(game_id))
+                        await bot.edit_message_text(chat_id=game_now[game_id][O_SIMBOL]['user'],
+                                                    message_id=game_now[game_id][O_SIMBOL]['message'],
+                                                    text=f'Ход соперника.',
+                                                    reply_markup=user_game_inline_keyboard(game_id))
+                        game_now[game_id]['player'] = game_now[game_id][X_SIMBOL]['user']
         else:
             await callback.answer('Нельзя сходить сюда')
     else:
