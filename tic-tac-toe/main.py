@@ -13,11 +13,15 @@ dp = Dispatcher(bot)
 BASE_SIMBOL = '◻'
 X_SIMBOL = '❌'
 O_SIMBOL = '⭕️'
+wait_user = []
+game = {}
+game_now = []
 
 
 def get_menu_inline_keyboard() -> InlineKeyboardMarkup:
     ikb = InlineKeyboardMarkup()
     ikb.add(InlineKeyboardButton('Игра с ботом', callback_data='bot'))
+    ikb.add(InlineKeyboardButton('Игра с человеком', callback_data='user'))
 
     return ikb
 
@@ -55,9 +59,35 @@ async def bot_game(message: types.Message) -> None:
     await bot.send_message(message.from_user.id, text=f'Твой ход.', reply_markup=get_game_inline_keyboard())
 
 
-async def start_field():
+def start_field():
     global field
     field = {cell: BASE_SIMBOL for cell in range(9)}
+
+
+@dp.callback_query_handler(lambda c: c.data.startswith('user'))
+async def bot_game(message: types.Message) -> None:
+    global wait_user
+    if message.from_user.id not in game:
+        if message.from_user.id not in wait_user:
+            wait_user.append(message.from_user.id)
+        if len(wait_user) == 1:
+            await bot.delete_message(message.from_user.id, message.message.message_id)
+            global wait_user_id, wait_message
+            wait_message = await bot.send_message(message.from_user.id, text=f'Ожидаем соперника.')
+            wait_user_id = message.from_user.id
+        elif len(wait_user) == 2:
+            game[wait_user[0]] = wait_user[1]
+            game[wait_user[1]] = wait_user[0]
+            game_now.append(wait_user)
+            wait_user = []
+            await start_game(message)
+
+
+async def start_game(message):
+    await bot.delete_message(message.from_user.id, message.message.message_id)
+    await bot.delete_message(wait_user_id, wait_message.message_id)
+    await bot.send_message(message.from_user.id, text=f'Соперник найден.')
+    await bot.send_message(game[message.from_user.id], text=f'Соперник найден')
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data.startswith('click'))
@@ -92,19 +122,19 @@ def bot_move():
 
     if move_list:
         if (4 in move_list) and ((0 in move_list_o and 8 in move_list_o) or (2 in move_list_o and 6 in move_list_o) or
-                                  (1 in move_list_o and 7 in move_list_o) or (3 in move_list_o and 5 in move_list_o)):
+                                 (1 in move_list_o and 7 in move_list_o) or (3 in move_list_o and 5 in move_list_o)):
             field[4] = O_SIMBOL
         elif (2 in move_list) and ((0 in move_list_o and 1 in move_list_o) or (5 in move_list_o and 8 in move_list_o) or
-                                    (4 in move_list_o and 6 in move_list_o)):
+                                   (4 in move_list_o and 6 in move_list_o)):
             field[2] = O_SIMBOL
         elif (0 in move_list) and ((1 in move_list_o and 2 in move_list_o) or (3 in move_list_o and 6 in move_list_o) or
-                                    (4 in move_list_o and 8 in move_list_o)):
+                                   (4 in move_list_o and 8 in move_list_o)):
             field[0] = O_SIMBOL
         elif (8 in move_list) and ((0 in move_list_o and 4 in move_list_o) or (2 in move_list_o and 5 in move_list_o) or
-                                    (6 in move_list_o and 7 in move_list_o)):
+                                   (6 in move_list_o and 7 in move_list_o)):
             field[8] = O_SIMBOL
         elif (6 in move_list) and ((0 in move_list_o and 3 in move_list_o) or (2 in move_list_o and 4 in move_list_o) or
-                                    (7 in move_list_o and 8 in move_list_o)):
+                                   (7 in move_list_o and 8 in move_list_o)):
             field[6] = O_SIMBOL
         elif (1 in move_list) and ((0 in move_list_o and 2 in move_list_o) or (4 in move_list_o and 7 in move_list_o)):
             field[1] = O_SIMBOL
@@ -115,19 +145,19 @@ def bot_move():
         elif (7 in move_list) and ((1 in move_list_o and 4 in move_list_o) or (6 in move_list_o and 8 in move_list_o)):
             field[7] = O_SIMBOL
         elif (4 in move_list) and ((0 in move_list_x and 8 in move_list_x) or (2 in move_list_x and 6 in move_list_x) or
-                                  (1 in move_list_x and 7 in move_list_x) or (3 in move_list_x and 5 in move_list_x)):
+                                   (1 in move_list_x and 7 in move_list_x) or (3 in move_list_x and 5 in move_list_x)):
             field[4] = O_SIMBOL
         elif (2 in move_list) and ((0 in move_list_x and 1 in move_list_x) or (5 in move_list_x and 8 in move_list_x) or
-                                    (4 in move_list_x and 6 in move_list_x)):
+                                   (4 in move_list_x and 6 in move_list_x)):
             field[2] = O_SIMBOL
         elif (0 in move_list) and ((1 in move_list_x and 2 in move_list_x) or (3 in move_list_x and 6 in move_list_x) or
-                                    (4 in move_list_x and 8 in move_list_x)):
+                                   (4 in move_list_x and 8 in move_list_x)):
             field[0] = O_SIMBOL
         elif (8 in move_list) and ((0 in move_list_x and 4 in move_list_x) or (2 in move_list_x and 5 in move_list_x) or
-                                    (6 in move_list_x and 7 in move_list_x)):
+                                   (6 in move_list_x and 7 in move_list_x)):
             field[8] = O_SIMBOL
         elif (6 in move_list) and ((0 in move_list_x and 3 in move_list_x) or (2 in move_list_x and 4 in move_list_x) or
-                                    (7 in move_list_x and 8 in move_list_x)):
+                                   (7 in move_list_x and 8 in move_list_x)):
             field[6] = O_SIMBOL
         elif (1 in move_list) and ((0 in move_list_x and 2 in move_list_x) or (4 in move_list_x and 7 in move_list_x)):
             field[1] = O_SIMBOL
@@ -146,7 +176,7 @@ def bot_move():
 
 
 def check_win(symbol):
-    if (field[0] == field[1] and field[1] == field[2]  and field[2] == symbol) or \
+    if (field[0] == field[1] and field[1] == field[2] and field[2] == symbol) or \
             (field[3] == field[4] and field[4] == field[5] and field[5] == symbol) or \
             (field[6] == field[7] and field[7] == field[8] and field[8] == symbol) or \
             (field[0] == field[3] and field[3] == field[6] and field[6] == symbol) or \
