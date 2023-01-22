@@ -38,7 +38,8 @@ def get_game_inline_keyboard(user_id) -> InlineKeyboardMarkup:
             InlineKeyboardButton(game_bot[user_id][5], callback_data='click_6'),
             InlineKeyboardButton(game_bot[user_id][6], callback_data='click_7'),
             InlineKeyboardButton(game_bot[user_id][7], callback_data='click_8'),
-            InlineKeyboardButton(game_bot[user_id][8], callback_data='click_9'))
+            InlineKeyboardButton(game_bot[user_id][8], callback_data='click_9'),
+            InlineKeyboardButton('Выйти из игры', callback_data='out_bot'))
     return ikb
 
 
@@ -52,7 +53,8 @@ def user_game_inline_keyboard(id) -> InlineKeyboardMarkup:
             InlineKeyboardButton(game_now[id][5], callback_data='uclick_6'),
             InlineKeyboardButton(game_now[id][6], callback_data='uclick_7'),
             InlineKeyboardButton(game_now[id][7], callback_data='uclick_8'),
-            InlineKeyboardButton(game_now[id][8], callback_data='uclick_9'))
+            InlineKeyboardButton(game_now[id][8], callback_data='uclick_9'),
+            InlineKeyboardButton('Выйти из игры', callback_data='out_user'))
     return ikb
 
 
@@ -97,7 +99,7 @@ async def click_field_button(callback: types.CallbackQuery) -> None:
                 else:
                     await callback.message.edit_text(text='Твой ход', reply_markup=get_game_inline_keyboard(callback.from_user.id))
     else:
-        await callback.message.edit_text(text='Нельзя сходить сюда', reply_markup=get_game_inline_keyboard(callback.from_user.id))
+        await callback.answer('Нельзя сходить сюда')
 
 
 async def bot_move(callback):
@@ -253,10 +255,14 @@ async def click_field_button(callback: types.CallbackQuery) -> None:
                 game_now[game_id]['message'] = mes.message_id
                 game_now[game_id]['player'] = game[game_now[game_id]['player']][0]
         else:
-            await callback.message.edit_text(text='Нельзя сходить сюда',
-                                             reply_markup=user_game_inline_keyboard(game_id))
+            await callback.answer('Нельзя сходить сюда')
     else:
-        await callback.message.edit_text(text='Ходит другой игрок', reply_markup=user_game_inline_keyboard(game_id))
+        await callback.answer('Ходит другой игрок')
+
+
+@dp.callback_query_handler(lambda callback_query: callback_query.data.startswith('out'))
+async def click_field_button(callback: types.CallbackQuery) -> None:
+    pass
 
 
 def u_check_win(symbol, game_id):
