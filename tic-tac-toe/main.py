@@ -198,9 +198,17 @@ async def user_game(message: types.Message) -> None:
             global wait_message
             wait_message = message
             await bot.edit_message_text(chat_id=message.from_user.id, message_id=message.message.message_id,
-                                        text=f'Ожидаем соперника.')
+                                        text=f'Ожидаем соперника.', reply_markup=InlineKeyboardMarkup().add(InlineKeyboardButton('Выйти', callback_data='end_wait')))
         elif len(wait_user) == 2:
             await start_game(message, wait_message)
+
+
+@dp.callback_query_handler(lambda callback_query: callback_query.data.startswith('end_wait'))
+async def end_wait(callback: types.CallbackQuery) -> None:
+    global wait_user
+    wait_user = wait_user[1:]
+    await bot.delete_message(callback.from_user.id, callback.message.message_id)
+    await menu(callback)
 
 
 async def start_game(message, wait_message):
