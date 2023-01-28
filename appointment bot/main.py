@@ -1,6 +1,7 @@
 from aiogram import Bot, Dispatcher, executor, types
 
 from config import TOKEN
+from keyboards import admin_menu
 
 
 bot = Bot(TOKEN)
@@ -13,7 +14,8 @@ async def on_startup(_):
 
 @dp.message_handler(commands=['start'])
 async def cmd_start(message: types.Message):
-    await message.answer(text='Добро пожаловать')
+    await message.delete()
+    await message.answer(text="Выберите пункт", reply_markup=admin_menu)
 
 
 if __name__ == '__main__':
