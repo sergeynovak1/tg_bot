@@ -2,8 +2,7 @@ from aiogram import Bot, Dispatcher, executor, types
 
 from config import TOKEN
 from keyboards import admin_menu
-from database import create_db
-
+from database import create_db, create_user
 
 bot = Bot(TOKEN)
 dp = Dispatcher(bot)
@@ -15,6 +14,7 @@ async def on_startup(_):
 
 @dp.message_handler(commands=['start'])
 async def cmd_start(message: types.Message):
+    create_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
     await message.delete()
     await message.answer(text="Выберите пункт", reply_markup=admin_menu)
 
