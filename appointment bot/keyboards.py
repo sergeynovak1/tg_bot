@@ -21,8 +21,18 @@ def admin_change_dates():
     ikb = InlineKeyboardMarkup()
     ikb.add(
         InlineKeyboardButton(text="Добавить запись", callback_data="add_date")).add(
-        InlineKeyboardButton(text="Удалить запись", callback_data=" "))
+        InlineKeyboardButton(text="Удалить запись", callback_data="del_date"))
     return ikb
+
+
+def ikb_dates(dates):
+    ikb = InlineKeyboardMarkup()
+    for date in dates:
+        ikb.add(InlineKeyboardButton(text=f"{date}", callback_data=f"date{date}"))
+    return ikb
+
+
+
 
 menu = ReplyKeyboardMarkup(resize_keyboard=True)
 menu.add(

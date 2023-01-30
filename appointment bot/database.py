@@ -26,3 +26,13 @@ def get_role(user_id):
 def create_date(date, time):
     cur.execute("INSERT INTO dates VALUES(default, %s, %s)", (date, time))
     conn.commit()
+
+
+def free_date():
+    cur.execute("SELECT date FROM dates GROUP BY date ORDER BY date")
+    return [x[0] for x in cur.fetchall()]
+
+
+def free_time(date):
+    cur.execute("SELECT * FROM dates WHERE date::date = %s ORDER BY time", (date,))
+    return cur.fetchall()
