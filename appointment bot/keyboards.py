@@ -17,5 +17,18 @@ def client_menu():
     return ikb
 
 
+def admin_change_dates():
+    ikb = InlineKeyboardMarkup()
+    ikb.add(
+        InlineKeyboardButton(text="Добавить запись", callback_data="add_date")).add(
+        InlineKeyboardButton(text="Удалить запись", callback_data=" "))
+    return ikb
+
+menu = ReplyKeyboardMarkup(resize_keyboard=True)
+menu.add(
+    KeyboardButton(text="Меню")
+)
+
+
 
 
