@@ -36,3 +36,18 @@ def free_date():
 def free_time(date):
     cur.execute("SELECT * FROM dates WHERE date::date = %s ORDER BY time", (date,))
     return cur.fetchall()
+
+
+def del_time(date_id):
+    cur.execute("DELETE FROM dates WHERE date_id = %s", (date_id,))
+    conn.commit()
+
+
+def get_time_by_id(date_id):
+    cur.execute("SELECT date, time FROM dates WHERE date_id = %s", (date_id,))
+    return cur.fetchone()
+
+
+def del_date(date):
+    cur.execute("DELETE FROM dates WHERE date = %s", (date,))
+    conn.commit()

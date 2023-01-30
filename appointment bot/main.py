@@ -1,13 +1,12 @@
 from aiogram import Bot, Dispatcher, executor, types
-from aiogram.types import ReplyKeyboardRemove
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
 from config import TOKEN
-from keyboards import admin_menu, client_menu, admin_change_dates, ikb_dates, cancel
-from database import create_db, create_user, get_role, create_date, free_date, free_time
+from keyboards import admin_menu, client_menu, admin_change_dates, ikb_dates, cancel, rkb_menu
+from database import create_db, create_user, get_role, create_date, free_date, free_time, del_time, get_time_by_id, \
+    del_date
 from main2 import get_db_date, get_data, get_time
 
 bot = Bot(TOKEN)
@@ -24,7 +23,7 @@ async def on_startup(_):
     create_db()
 
 
-@dp.message_handler(commands=['start'])
+@dp.message_handler(commands=['start', 'menu'])
 async def cmd_start(message: types.Message):
     create_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
     await message.delete()
@@ -32,14 +31,6 @@ async def cmd_start(message: types.Message):
         await message.answer(text="Главное меню", reply_markup=client_menu())
     else:
         await message.answer(text="Выберите пункт", reply_markup=admin_menu())
-
-
-@dp.callback_query_handler(lambda callback_query: callback_query.data == "menu")
-async def menu(callback: types.CallbackQuery):
-    if get_role(callback.from_user.id) == 'client':
-        await callback.message.edit_text(text="Главное меню", reply_markup=client_menu())
-    else:
-        await callback.message.edit_text(text="Выберите пункт", reply_markup=admin_menu())
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data == "appointments")
@@ -76,7 +67,6 @@ async def cmd_cancel(message: types.Message, state: FSMContext):
         return
     await state.finish()
     await message.reply("Добавление новых дат прервано")
-    await ReplyKeyboardRemove()
     await bot.send_message(message.from_user.id, text="Выберите пункт", reply_markup=admin_menu())
 
 
@@ -134,12 +124,24 @@ async def list_dates(callback: types.CallbackQuery):
             else:
                 string += f"\t\t{get_time(time[2])}\t CВОБОДНО /del{time[0]}\n"
         string += f"\n</em>"
-    await callback.message.edit_text(text=string, reply_markup=admin_change_dates(), parse_mode='HTML')
+    await callback.message.delete()
+    await bot.send_message(callback.from_user.id, text=string, reply_markup=rkb_menu(), parse_mode='HTML')
 
 
+@dp.message_handler(lambda message: message.text.startswith('/del'))
+async def delet_time(message:types.Message):
+    date_id = message.text[4:]
+    date = get_data(get_time_by_id(date_id)[0])
+    time = get_time(get_time_by_id(date_id)[1])
+    del_time(date_id)
+    await message.reply(text=f"Запись <b>{date}</b>\t{time} удалена", reply_markup=rkb_menu(), parse_mode="HTML")
 
 
-
+@dp.message_handler(lambda message: message.text.startswith('/ddel'))
+async def delet_date(message:types.Message):
+    date = f"{message.text[5:][:2]}.{message.text[5:][2:]}"
+    del_date(get_db_date(date))
+    await message.reply(text=f"Все записи на <b>{date}</b> удалены", reply_markup=rkb_menu(), parse_mode="HTML")
 
 
 

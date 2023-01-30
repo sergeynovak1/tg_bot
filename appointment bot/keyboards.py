@@ -34,15 +34,16 @@ def ikb_dates(dates):
 
 
 def cancel():
-    rkb = ReplyKeyboardMarkup(resize_keyboard=True)
+    rkb = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     rkb.add(KeyboardButton(text="/cancel"))
     return rkb
 
 
-menu = ReplyKeyboardMarkup(resize_keyboard=True)
-menu.add(
-    KeyboardButton(text="Меню")
-)
+def rkb_menu():
+    rkb = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    rkb.add(KeyboardButton(text="/menu"))
+    return rkb
+
 
 
 
