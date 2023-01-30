@@ -6,9 +6,9 @@ from aiogram.dispatcher.filters import Text
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
 from config import TOKEN
-from keyboards import admin_menu, client_menu, admin_change_dates, ikb_dates
+from keyboards import admin_menu, client_menu, admin_change_dates, ikb_dates, cancel
 from database import create_db, create_user, get_role, create_date, free_date, free_time
-from main2 import get_db_date, get_data, get_date_from_db, get_time
+from main2 import get_db_date, get_data, get_time
 
 bot = Bot(TOKEN)
 storage = MemoryStorage()
@@ -34,6 +34,14 @@ async def cmd_start(message: types.Message):
         await message.answer(text="Выберите пункт", reply_markup=admin_menu())
 
 
+@dp.callback_query_handler(lambda callback_query: callback_query.data == "menu")
+async def menu(callback: types.CallbackQuery):
+    if get_role(callback.from_user.id) == 'client':
+        await callback.message.edit_text(text="Главное меню", reply_markup=client_menu())
+    else:
+        await callback.message.edit_text(text="Выберите пункт", reply_markup=admin_menu())
+
+
 @dp.callback_query_handler(lambda callback_query: callback_query.data == "appointments")
 async def list_dates(callback: types.CallbackQuery):
     dates = [get_data(date) for date in free_date()]
@@ -46,25 +54,41 @@ async def list_dates(callback: types.CallbackQuery):
             else:
                 string += f"\t\t{get_time(time[2])}\t CВОБОДНО\n"
         string += f"\n</em>"
-    await callback.message.edit_text(text=string, reply_markup=admin_change_dates(), parse_mode="HTML")
+    await callback.message.edit_text(text=string, parse_mode="HTML")
+    await bot.send_message(callback.from_user.id, text="Выберите пункт", reply_markup=admin_menu())
+
+
+@dp.callback_query_handler(lambda callback_query: callback_query.data == "change_appointments")
+async def change_appointments(callback: types.CallbackQuery):
+    await callback.message.edit_text(text="Выберите пункт", reply_markup=admin_change_dates(), parse_mode="HTML")
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data == "add_date")
 async def list_dates(callback: types.CallbackQuery):
     await Date.date.set()
-    await callback.message.edit_text(text='Добавление даты\n\nНапишите дату в виде дд.мм')
+    await callback.message.delete()
+    await bot.send_message(callback.from_user.id, text='Добавление даты\n\nНапишите дату в виде дд.мм', reply_markup=cancel())
 
 
-@dp.message_handler(state='*', commands='cancel')
-@dp.message_handler(Text(equals='отмена', ignore_case=True), state='*')
-async def cancel_handler(message: types.Message, state: FSMContext):
-    current_state = await state.get_state()
-    if current_state is None:
+@dp.message_handler(commands=['cancel'], state='*')
+async def cmd_cancel(message: types.Message, state: FSMContext):
+    if state is None:
         return
-
     await state.finish()
-    await message.reply('ОК')
-    await message.answer(text="Выберите пункт", reply_markup=admin_menu())
+    await message.reply("Добавление новых дат прервано")
+    await ReplyKeyboardRemove()
+    await bot.send_message(message.from_user.id, text="Выберите пункт", reply_markup=admin_menu())
+
+
+def check_date(date):
+    if date[:2].isdigit() and date[3:].isdigit() and date[2] == '.':
+        return True
+    return False
+
+
+@dp.message_handler(lambda message: not check_date(message.text), state=Date.date)
+async def date_error(message: types.Message):
+    await message.reply('<b>Неправильный формат даты</b>\n\nНапишите дату в виде дд.мм', parse_mode="HTML", reply_markup=cancel())
 
 
 @dp.message_handler(state=Date.date)
@@ -73,14 +97,18 @@ async def process_date_date(message: types.Message, state: FSMContext):
         data['date'] = message.text
 
     await Date.next()
-    await message.reply("Напишите время чч:мм-чч:мм")
+    await message.reply("Напишите время чч:мм", reply_markup=cancel())
 
 
-'''# Проверяем возраст
-@dp.message_handler(lambda message: not message.text.isdigit(), state=Form.age)
-async def process_age_invalid(message: types.Message):
-    return await message.reply("Напиши возраст или напиши /cancel")'''
+def check_time(time):
+    if time[:2].isdigit() and time[2] == ':' and time[3:].isdigit():
+        return True
+    return False
 
+
+@dp.message_handler(lambda message: not check_time(message.text), state=Date.time)
+async def time_error(message: types.Message):
+    await message.reply('<b>Неправильный формат времени</b>\n\nНапишите время в виде чч:мм', parse_mode="HTML", reply_markup=cancel())
 
 
 @dp.message_handler(state=Date.time)
@@ -94,7 +122,7 @@ async def process_date_time(message: types.Message, state: FSMContext):
     await message.answer(text="Выберите пункт", reply_markup=admin_menu())
 
 
-@dp.callback_query_handler(lambda callback_query: callback_query.data == "del_date")
+@dp.callback_query_handler(lambda callback_query: callback_query.data == "change_date")
 async def list_dates(callback: types.CallbackQuery):
     dates = [get_data(date) for date in free_date()]
     string = ''
