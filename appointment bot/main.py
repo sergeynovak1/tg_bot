@@ -7,7 +7,8 @@ from config import TOKEN
 from keyboards import admin_menu, client_menu, admin_change_dates, ikb_data, cancel, rkb_menu, ikb_confirm_action, \
     callback_date
 from database import create_db, create_user, get_role, create_date, free_date, free_time, del_time, get_time_by_id, \
-    del_date, all_date, all_time, get_appointment_by_date_time, make_appointment, get_name_by_id
+    del_date, all_date, all_time, get_appointment_by_date_time, make_appointment, get_name_by_id, get_app_by_name, \
+    remove_appointment
 from main2 import get_db_date, get_data, get_time
 
 bot = Bot(TOKEN)
@@ -153,9 +154,9 @@ async def list_dates(callback: types.CallbackQuery):
         for time in all_time(get_db_date(date)):
             if time[3]:
                 try:
-                    string += f"\t\t{get_time(time[2])}\t @{get_name_by_id(time[3])} /del{time[0]}\n"
+                    string += f"\t\t{get_time(time[2])}\t @{get_name_by_id(time[3])} /del{time[0]} /rem{time[0]}\n"
                 except:
-                    string += f"\t\t{get_time(time[2])}\t {time[3]} /del{time[0]}\n"
+                    string += f"\t\t{get_time(time[2])}\t {time[3]} /del{time[0]} /rem{time[0]}\n"
             else:
                 string += f"\t\t{get_time(time[2])}\t CВОБОДНО /del{time[0]}\n"
         string += f"\n</em>"
@@ -183,8 +184,31 @@ async def try_delet_date(message: types.Message):
                         reply_markup=ikb_confirm_action('del_date', date), parse_mode="HTML")
 
 
+@dp.message_handler(lambda message: message.text.startswith('/rem'))
+async def try_del_app(message: types.Message):
+    date_id = message.text[4:]
+    date = get_data(get_time_by_id(date_id)[0])
+    time = get_time(get_time_by_id(date_id)[1])
+    if get_role(message.from_user.id) == 'admin':
+        text = f"Вы действительно хотите удалить запись клиента на <b>{date}</b> {time}?"
+    else:
+        text = f"Вы действительно хотите удалить запись на <b>{date}</b> {time}?"
+    await message.reply(text=text, reply_markup=ikb_confirm_action('rem_app', date_id), parse_mode="HTML")
+
+
 @dp.callback_query_handler(callback_date.filter())
 async def cb_action(callback: types.CallbackQuery, callback_data: dict):
+    if callback_data['action'] == 'rem_app':
+        date_id = callback_data['data']
+        date = get_data(get_time_by_id(date_id)[0])
+        time = get_time(get_time_by_id(date_id)[1])
+        remove_appointment(date_id)
+        if get_role(callback.from_user.id) == 'admin':
+            await callback.message.delete()
+            await bot.send_message(callback.from_user.id, text=f"Запись клиента на <b>{date}</b>\t{time} удалена",
+                                   reply_markup=rkb_menu(), parse_mode="HTML")
+        else:
+            await callback.message.edit_text(text=f"Ваша запись на <b>{date}</b>\t{time} удалена", parse_mode="HTML")
     if get_role(callback.from_user.id) == 'admin':
         if callback_data['action'] == 'del_time':
             date_id = callback_data['data']
@@ -253,6 +277,21 @@ async def add_app_contact(message: types.Message, state: FSMContext):
     make_appointment(data['phone'], data['date_id'])
     await message.reply("Запись добавлена")
     await bot.send_message(message.from_user.id, text="Выберите пункт", reply_markup=admin_menu())
+
+
+@dp.message_handler(lambda message: message.text == 'Мои записи')
+async def my_appointments(message: types.Message):
+    apps = get_app_by_name(message.from_user.id)
+    string = ''
+    for app in apps:
+        date = get_data(app[1])
+        time = get_time(app[2])
+        string += f"\t\t<em><b>{date}\t</b> {time} /rem{app[0]}\n</em>"
+    if not string:
+        string = "<em>Нет актуальных записей</em>"
+    else:
+        string = "<em>Ваши записи:</em>\n" + string
+    await message.reply(text=string, parse_mode="HTML")
 
 
 if __name__ == '__main__':
