@@ -9,7 +9,7 @@ cur = conn.cursor()
 
 def create_db():
     cur.execute("CREATE TABLE IF NOT EXISTS users (id bigint PRIMARY KEY, tg varchar, name varchar, role varchar); ALTER TABLE users ALTER COLUMN role SET DEFAULT 'client'")
-    cur.execute("CREATE TABLE IF NOT EXISTS dates (date_id serial PRIMARY KEY, date date, time time, client_id bigint references users); ALTER TABLE dates ALTER COLUMN client_id SET DEFAULT NULL")
+    cur.execute("CREATE TABLE IF NOT EXISTS dates (date_id serial PRIMARY KEY, date date, time time, client_id bigint); ALTER TABLE dates ALTER COLUMN client_id SET DEFAULT NULL")
     conn.commit()
 
 

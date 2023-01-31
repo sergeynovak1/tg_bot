@@ -20,6 +20,10 @@ class Date(StatesGroup):
     time = State()
 
 
+class Appoint(StatesGroup):
+    phone = State()
+
+
 async def on_startup(_):
     create_db()
 
@@ -59,7 +63,10 @@ async def list_dates(callback: types.CallbackQuery):
         string += f"<b>{date}\t</b><em>\n"
         for time in all_time(get_db_date(date)):
             if time[3]:
-                string += f"\t\t{get_time(time[2])}\t @{get_name_by_id(time[3])}\n"
+                try:
+                    string += f"\t\t{get_time(time[2])}\t @{get_name_by_id(time[3])}\n"
+                except:
+                    string += f"\t\t{get_time(time[2])}\t {time[3]}\n"
             else:
                 string += f"\t\t{get_time(time[2])}\t CВОБОДНО\n"
         string += f"\n</em>"
@@ -106,7 +113,6 @@ async def date_error(message: types.Message):
 
 
 @dp.message_handler(state=Date.date)
-@admin
 async def process_date_date(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['date'] = message.text
@@ -127,7 +133,6 @@ async def time_error(message: types.Message):
 
 
 @dp.message_handler(state=Date.time)
-@admin
 async def process_date_time(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['time'] = message.text
@@ -147,7 +152,10 @@ async def list_dates(callback: types.CallbackQuery):
         string += f"<b>{date}\t</b> /ddel{date[:2]}{date[3:]}\n<em>"
         for time in all_time(get_db_date(date)):
             if time[3]:
-                string += f"\t\t{get_time(time[2])}\t @{get_name_by_id(time[3])} /del{time[0]}\n"
+                try:
+                    string += f"\t\t{get_time(time[2])}\t @{get_name_by_id(time[3])} /del{time[0]}\n"
+                except:
+                    string += f"\t\t{get_time(time[2])}\t {time[3]} /del{time[0]}\n"
             else:
                 string += f"\t\t{get_time(time[2])}\t CВОБОДНО /del{time[0]}\n"
         string += f"\n</em>"
@@ -192,7 +200,7 @@ async def cb_action(callback: types.CallbackQuery, callback_data: dict):
             await callback.message.delete()
             await bot.send_message(callback.from_user.id, text=f"Все записи на <b>{date}</b> удалены",
                                    reply_markup=rkb_menu(), parse_mode="HTML")
-    if callback_data['action'] == 'add_app':
+    elif callback_data['action'] == 'add_app':
         date_id = callback_data['data']
         user_id = callback.from_user.id
         make_appointment(user_id, date_id)
@@ -207,6 +215,12 @@ async def choose_date(message: types.Message):
     await message.reply(text=f"Выберите дату:", reply_markup=ikb_data('date', dates))
 
 
+@dp.callback_query_handler(lambda callback_query: callback_query.data == "make_appointments")
+async def choose_date_admin(callback: types.CallbackQuery):
+    dates = [get_data(date) for date in free_date()]
+    await callback.message.edit_text(text=f"Выберите дату:", reply_markup=ikb_data('date', dates))
+
+
 @dp.callback_query_handler(lambda callback_query: callback_query.data.startswith("date"))
 async def choose_time(callback: types.CallbackQuery):
     date = get_db_date(callback.data[4:])
@@ -215,12 +229,30 @@ async def choose_time(callback: types.CallbackQuery):
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data.startswith("time"))
-async def choose_time(callback: types.CallbackQuery):
+async def choose_time(callback: types.CallbackQuery, state: FSMContext):
     date = callback.data[4:14]
     time = callback.data[14:]
     date_id = get_appointment_by_date_time(date, time)[0]
-    await callback.message.edit_text(text=f"Вы действительно хотите записаться на <b>{date[3:5]}.{date[:2]}</b> {time}?",
-                        reply_markup=ikb_confirm_action('add_app', date_id), parse_mode="HTML")
+    if get_role(callback.from_user.id) != 'admin':
+        await callback.message.edit_text(text=f"Вы действительно хотите записаться на <b>{date[3:5]}.{date[:2]}</b> {time}?",
+                            reply_markup=ikb_confirm_action('add_app', date_id), parse_mode="HTML")
+    else:
+        async with state.proxy() as data:
+            data['date_id'] = date_id
+        await Appoint.phone.set()
+        await callback.message.delete()
+        await bot.send_message(callback.from_user.id, text='Напишите номер телефона или @tg клиента',
+                               reply_markup=cancel())
+
+
+@dp.message_handler(state=Appoint.phone)
+async def add_app_contact(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data['phone'] = message.text
+    await state.finish()
+    make_appointment(data['phone'], data['date_id'])
+    await message.reply("Запись добавлена")
+    await bot.send_message(message.from_user.id, text="Выберите пункт", reply_markup=admin_menu())
 
 
 if __name__ == '__main__':
