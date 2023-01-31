@@ -9,6 +9,7 @@ def admin_menu():
     ikb.add(
         InlineKeyboardButton(text="Настроить расписание", callback_data="change_appointments")).add(
         InlineKeyboardButton(text="Посмотреть записи", callback_data="appointments")).add(
+        InlineKeyboardButton(text="Записать на стрижку", callback_data="make_appointments")).add(
         InlineKeyboardButton(text="Сделать рассылку", callback_data=" "))
     return ikb
 
@@ -16,7 +17,8 @@ def admin_menu():
 def client_menu():
     ikb = ReplyKeyboardMarkup(resize_keyboard=True)
     ikb.add(
-        KeyboardButton(text="Записаться на стрижку"))
+        KeyboardButton(text="Записаться на стрижку")).add(
+        KeyboardButton(text="Мои записи"))
     return ikb
 
 
@@ -29,10 +31,10 @@ def admin_change_dates():
     return ikb
 
 
-def ikb_dates(dates):
+def ikb_data(action, data):
     ikb = InlineKeyboardMarkup()
-    for date in dates:
-        ikb.add(InlineKeyboardButton(text=f"{date}", callback_data=f"date{date}"))
+    for elem in data:
+        ikb.add(InlineKeyboardButton(text=f"{elem}", callback_data=f"{action}{elem}"))
     return ikb
 
 
@@ -48,7 +50,7 @@ def rkb_menu():
     return rkb
 
 
-def ikb_del_time(action, data):
+def ikb_confirm_action(action, data):
     ikb = InlineKeyboardMarkup()
     ikb.add(
         InlineKeyboardButton(text="Да", callback_data=callback_date.new(action=action, data=data))).add(
