@@ -1,4 +1,7 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.utils.callback_data import CallbackData
+
+callback_date = CallbackData('real_del_time', 'action', 'data')
 
 
 def admin_menu():
@@ -45,6 +48,12 @@ def rkb_menu():
     return rkb
 
 
+def ikb_del_time(action, data):
+    ikb = InlineKeyboardMarkup()
+    ikb.add(
+        InlineKeyboardButton(text="Да", callback_data=callback_date.new(action=action, data=data))).add(
+        InlineKeyboardButton(text="Нет", callback_data="menu"))
+    return ikb
 
 
 
