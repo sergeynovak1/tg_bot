@@ -8,8 +8,9 @@ from keyboards import admin_menu, client_menu, admin_change_dates, ikb_data, can
     callback_date
 from database import create_db, create_user, get_role, create_date, free_date, free_time, del_time, get_time_by_id, \
     del_date, all_date, all_time, get_appointment_by_date_time, make_appointment, get_name_by_id, get_app_by_name, \
-    remove_appointment
-from main2 import get_db_date, get_data, get_time
+    remove_appointment, app_info, id_in_date
+from main2 import get_db_date, get_data, get_time, insert_appointment
+
 
 bot = Bot(TOKEN)
 storage = MemoryStorage()
@@ -50,7 +51,7 @@ async def cmd_start(message: types.Message):
 @dp.callback_query_handler(lambda callback_query: callback_query.data == "menu")
 async def list_dates(callback: types.CallbackQuery):
     if get_role(callback.from_user.id) == 'client':
-        await callback.message.edit_text(text="Главное меню", reply_markup=client_menu())
+        await callback.message.delete()
     else:
         await callback.message.edit_text(text="Выберите пункт", reply_markup=admin_menu())
 
@@ -92,7 +93,6 @@ async def list_dates(callback: types.CallbackQuery):
 
 
 @dp.message_handler(commands=['cancel'], state='*')
-@admin
 async def cmd_cancel(message: types.Message, state: FSMContext):
     if state is None:
         return
@@ -108,7 +108,6 @@ def check_date(date):
 
 
 @dp.message_handler(lambda message: not check_date(message.text), state=Date.date)
-@admin
 async def date_error(message: types.Message):
     await message.reply('<b>Неправильный формат даты</b>\n\nНапишите дату в виде дд.мм', parse_mode="HTML", reply_markup=cancel())
 
@@ -118,19 +117,23 @@ async def process_date_date(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['date'] = message.text
     await Date.next()
-    await message.reply("Напишите время чч:мм", reply_markup=cancel())
+    await message.reply("Напишите время в виде чч:мм или промежуток чч:мм-чч:мм", reply_markup=cancel())
 
 
 def check_time(time):
-    if time[:2].isdigit() and time[2] == ':' and time[3:].isdigit():
-        return True
-    return False
+    time = time.split('-')
+    if len(time) not in [5, 11]:
+        return False
+    for t in time:
+        if not (t[:2].isdigit() and t[2] == ':' and t[3:].isdigit()):
+            return False
+    return True
 
 
 @dp.message_handler(lambda message: not check_time(message.text), state=Date.time)
 @admin
 async def time_error(message: types.Message):
-    await message.reply('<b>Неправильный формат времени</b>\n\nНапишите время в виде чч:мм', parse_mode="HTML", reply_markup=cancel())
+    await message.reply('<b>Неправильный формат времени</b>\n\nНапишите время в виде чч:мм или промежуток чч:мм-чч:мм', parse_mode="HTML", reply_markup=cancel())
 
 
 @dp.message_handler(state=Date.time)
@@ -139,7 +142,7 @@ async def process_date_time(message: types.Message, state: FSMContext):
         data['time'] = message.text
     await state.finish()
     date = get_db_date(data['date'])
-    create_date(date, data['time'])
+    insert_appointment(date, data['time'])
     await message.reply("Свободные даты добавлены")
     await message.answer(text="Выберите пункт", reply_markup=admin_menu())
 
@@ -193,7 +196,8 @@ async def try_del_app(message: types.Message):
         text = f"Вы действительно хотите удалить запись клиента на <b>{date}</b> {time}?"
     else:
         text = f"Вы действительно хотите удалить запись на <b>{date}</b> {time}?"
-    await message.reply(text=text, reply_markup=ikb_confirm_action('rem_app', date_id), parse_mode="HTML")
+    await message.delete()
+    await message.answer(text=text, reply_markup=ikb_confirm_action('rem_app', date_id), parse_mode="HTML")
 
 
 @dp.callback_query_handler(callback_date.filter())
@@ -202,11 +206,17 @@ async def cb_action(callback: types.CallbackQuery, callback_data: dict):
         date_id = callback_data['data']
         date = get_data(get_time_by_id(date_id)[0])
         time = get_time(get_time_by_id(date_id)[1])
-        remove_appointment(date_id)
         if get_role(callback.from_user.id) == 'admin':
             await callback.message.delete()
             await bot.send_message(callback.from_user.id, text=f"Запись клиента на <b>{date}</b>\t{time} удалена",
                                    reply_markup=rkb_menu(), parse_mode="HTML")
+            try:
+                app = app_info(date_id)
+                await bot.send_message(app, text=f"Ваша запись на <b>{date}</b>\t{time} была удалена администратором", parse_mode="HTML")
+            except:
+                pass
+            finally:
+                remove_appointment(date_id)
         else:
             await callback.message.edit_text(text=f"Ваша запись на <b>{date}</b>\t{time} удалена", parse_mode="HTML")
     if get_role(callback.from_user.id) == 'admin':
@@ -214,13 +224,26 @@ async def cb_action(callback: types.CallbackQuery, callback_data: dict):
             date_id = callback_data['data']
             date = get_data(get_time_by_id(date_id)[0])
             time = get_time(get_time_by_id(date_id)[1])
-            del_time(date_id)
             await callback.message.delete()
             await bot.send_message(callback.from_user.id, text=f"Запись <b>{date}</b>\t{time} удалена",
                                    reply_markup=rkb_menu(), parse_mode="HTML")
+            try:
+                app = app_info(date_id)
+                await bot.send_message(app, text=f"Ваша запись на <b>{date}</b>\t{time} была удалена администратором", parse_mode="HTML")
+            except:
+                pass
+            finally:
+                del_time(date_id)
         elif callback_data['action'] == 'del_date':
             date = callback_data['data']
-            del_date(get_db_date(date))
+            ids = [id[0] for id in id_in_date(get_db_date(date))]
+            for date_id in ids:
+                time = get_time(get_time_by_id(date_id)[1])
+                app = app_info(date_id)
+                await bot.send_message(app,
+                                       text=f"Ваша запись на <b>{date}</b>\t{time} была удалена администратором",
+                                       parse_mode="HTML")
+                del_time(date_id)
             await callback.message.delete()
             await bot.send_message(callback.from_user.id, text=f"Все записи на <b>{date}</b> удалены",
                                    reply_markup=rkb_menu(), parse_mode="HTML")

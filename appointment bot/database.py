@@ -86,3 +86,13 @@ def get_app_by_name(user_id):
 def remove_appointment(date_id):
     cur.execute("UPDATE dates SET client_id=null WHERE date_id=%s", (date_id,))
     conn.commit()
+
+
+def app_info(date_id):
+    cur.execute("SELECT client_id FROM dates WHERE date_id = %s", (date_id,))
+    return cur.fetchone()[0]
+
+
+def id_in_date(date):
+    cur.execute("SELECT date_id FROM dates WHERE date = %s", (date,))
+    return cur.fetchall()

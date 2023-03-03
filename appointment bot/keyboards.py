@@ -53,7 +53,7 @@ def rkb_menu():
 def ikb_confirm_action(action, data):
     ikb = InlineKeyboardMarkup()
     ikb.add(
-        InlineKeyboardButton(text="Да", callback_data=callback_date.new(action=action, data=data))).add(
+        InlineKeyboardButton(text="Да", callback_data=callback_date.new(action=action, data=data)),
         InlineKeyboardButton(text="Нет", callback_data="menu"))
     return ikb
 
