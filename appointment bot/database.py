@@ -9,7 +9,7 @@ cur = conn.cursor()
 
 def create_db():
     cur.execute("CREATE TABLE IF NOT EXISTS users (id bigint PRIMARY KEY, tg varchar, name varchar, role varchar); ALTER TABLE users ALTER COLUMN role SET DEFAULT 'client'")
-    cur.execute("CREATE TABLE IF NOT EXISTS dates (date_id serial PRIMARY KEY, date date, time time, client_id bigint); ALTER TABLE dates ALTER COLUMN client_id SET DEFAULT NULL")
+    cur.execute("CREATE TABLE IF NOT EXISTS dates (date_id serial PRIMARY KEY, date date, time time, client_id bigint, another_data varchar); ALTER TABLE dates ALTER COLUMN client_id SET DEFAULT NULL")
     conn.commit()
 
 
@@ -18,8 +18,13 @@ def create_user(client_id, client_tg, client_name):
     conn.commit()
 
 
+def user_exist(user_id):
+    cur.execute("SELECT id FROM users WHERE id = %s", (user_id, ))
+    return cur.fetchone()
+
+
 def get_role(user_id):
-    cur.execute("SELECT role FROM users WHERE id = %s", (user_id,))
+    cur.execute("SELECT role FROM users WHERE id = %s", (user_id, ))
     return cur.fetchone()[0]
 
 
@@ -29,7 +34,7 @@ def create_date(date, time):
 
 
 def free_date():
-    cur.execute("SELECT date FROM dates WHERE client_id is null GROUP BY date ORDER BY date")
+    cur.execute("SELECT date FROM dates WHERE client_id is null and another_data is null GROUP BY date ORDER BY date")
     return [x[0] for x in cur.fetchall()]
 
 
@@ -39,7 +44,7 @@ def all_date():
 
 
 def free_time(date):
-    cur.execute("SELECT time FROM dates WHERE date::date = %s and client_id is null ORDER BY time", (date,))
+    cur.execute("SELECT time FROM dates WHERE date::date = %s and client_id is null and another_data is null ORDER BY time", (date,))
     return cur.fetchall()
 
 
@@ -68,8 +73,14 @@ def get_appointment_by_date_time(date, time):
     return cur.fetchone()
 
 
-def make_appointment(client_id, date_id):
-    cur.execute("UPDATE dates SET client_id=%s WHERE date_id=%s", (client_id, date_id))
+def check_appointment(date_id):
+    cur.execute("SELECT another_data, client_id FROM dates WHERE date_id = %s", (date_id,))
+    print(cur.fetchone())
+    return cur.fetchone()
+
+
+def make_appointment(user_id, data, date_id):
+    cur.execute("UPDATE dates SET client_id=%s, another_data=%s WHERE date_id=%s", (user_id, data, date_id))
     conn.commit()
 
 

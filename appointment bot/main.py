@@ -13,7 +13,7 @@ from keyboards import user_menu, client_menu, admin_change_dates, ikb_data, canc
     callback_date
 from database import create_db, create_user, get_role, create_date, free_date, free_time, del_time, get_time_by_id, \
     del_date, all_date, all_time, get_appointment_by_date_time, make_appointment, get_name_by_id, get_app_by_name, \
-    remove_appointment, app_info, id_in_date
+    remove_appointment, app_info, id_in_date, user_exist, check_appointment
 from main2 import get_db_date, get_data, get_time, insert_appointment
 
 
@@ -28,6 +28,10 @@ class Date(StatesGroup):
 
 
 class Appoint(StatesGroup):
+    phone = State()
+
+
+class UserData(StatesGroup):
     phone = State()
 
 
@@ -58,17 +62,38 @@ async def background_task_creator() -> None:
 
 
 @dp.message_handler(commands=['start', 'menu'])
-async def cmd_start(message: types.Message):
-    create_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
-    await message.delete()
-    if get_role(message.from_user.id) == 'client':
+async def cmd_start(message: types.Message, state: FSMContext):
+    if not user_exist(message.from_user.id):
+        if message.from_user.username:
+            create_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
+            await message.delete()
+        else:
+            async with state.proxy() as data:
+                data['user_id'] = message.from_user.id
+                data['first_name'] = message.from_user.first_name
+            await UserData.phone.set()
+            await message.reply(text='У вас нет username, напишите телефон для связи')
+    elif get_role(message.from_user.id) == 'client':
         await message.answer(text="Главное меню", reply_markup=user_menu(message.from_user.id))
     else:
-        for i in asyncio.all_tasks():
-            print(i)
         if len(asyncio.all_tasks()) <= 3:
             await background_task_creator()
         await message.answer(text="Выберите пункт", reply_markup=user_menu(message.from_user.id))
+
+
+@dp.message_handler(state=UserData.phone)
+async def add_contact(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:
+        data['phone'] = message.text
+    await state.finish()
+    create_user(data['user_id'], data['phone'], data['first_name'])
+
+    """
+        сделать проверку на наличие пользователя в базе
+    """
+
+    await message.reply("Теперь вы зарегистрированы")
+    await bot.send_message(message.from_user.id, text="Выберите пункт", reply_markup=user_menu(message.from_user.id))
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data == "menu")
@@ -276,7 +301,7 @@ async def cb_action(callback: types.CallbackQuery, callback_data: dict):
     elif callback_data['action'] == 'add_app':
         date_id = callback_data['data']
         user_id = callback.from_user.id
-        make_appointment(user_id, date_id)
+        make_appointment(user_id, None, date_id)
         date = get_data(get_time_by_id(date_id)[0])
         time = get_time(get_time_by_id(date_id)[1])
         await callback.message.edit_text(text=f"Вы записаны на <b>{date}</b> {time}", parse_mode="HTML")
@@ -305,7 +330,10 @@ async def choose_date_admin(callback: types.CallbackQuery):
 @dp.callback_query_handler(lambda callback_query: callback_query.data.startswith("date"))
 async def choose_time(callback: types.CallbackQuery):
     date = get_db_date(callback.data[4:])
-    times = [get_time(time[0]) for time in free_time(date) if time[0] >= (datetime.datetime.now() - datetime.timedelta(hours=0, minutes=10)).time()]
+    if date == datetime.datetime.today().strftime('%m.%d.%Y'):
+        times = [get_time(time[0]) for time in free_time(date) if time[0] >= (datetime.datetime.now() - datetime.timedelta(hours=0, minutes=10)).time()]
+    else:
+        times = [get_time(time[0]) for time in free_time(date)]
     ikb = ikb_data(f"time{date}", times).add(InlineKeyboardButton(text="Назад", callback_data="make_appointments"))
     if times:
         await callback.message.edit_text(text=f"Выберите время:", reply_markup=ikb)
@@ -318,6 +346,7 @@ async def choose_time(callback: types.CallbackQuery, state: FSMContext):
     date = callback.data[4:14]
     time = callback.data[14:]
     date_id = get_appointment_by_date_time(date, time)[0]
+    check_appointment(date_id)
     if get_role(callback.from_user.id) != 'admin':
         await callback.message.edit_text(text=f"Вы действительно хотите записаться на <b>{date[3:5]}.{date[:2]}</b> {time}?",
                             reply_markup=ikb_confirm_action('add_app', date_id), parse_mode="HTML")
@@ -335,7 +364,12 @@ async def add_app_contact(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['phone'] = message.text
     await state.finish()
-    make_appointment(data['phone'], data['date_id'])
+    make_appointment(None, data['phone'], data['date_id'])
+
+    """
+        сделать проверку на наличие пользователя в базе
+    """
+
     await message.reply("Запись добавлена")
     await bot.send_message(message.from_user.id, text="Выберите пункт", reply_markup=user_menu(message.from_user.id))
 
