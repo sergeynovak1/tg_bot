@@ -1,10 +1,15 @@
+import asyncio
+
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+
+import datetime
 
 from config import TOKEN
-from keyboards import admin_menu, client_menu, admin_change_dates, ikb_data, cancel, rkb_menu, ikb_confirm_action, \
+from keyboards import user_menu, client_menu, admin_change_dates, ikb_data, cancel, rkb_menu, ikb_confirm_action, \
     callback_date
 from database import create_db, create_user, get_role, create_date, free_date, free_time, del_time, get_time_by_id, \
     del_date, all_date, all_time, get_appointment_by_date_time, make_appointment, get_name_by_id, get_app_by_name, \
@@ -38,14 +43,32 @@ def admin(func):
     return wrapper
 
 
+async def background_on_action() -> None:
+    """background task which is created when user asked"""
+    i = 0
+    while True:
+        i += 1
+        await asyncio.sleep(3)
+        print("Action!", i)
+
+
+async def background_task_creator() -> None:
+    """Creates background tasks"""
+    asyncio.create_task(background_on_action())
+
+
 @dp.message_handler(commands=['start', 'menu'])
 async def cmd_start(message: types.Message):
     create_user(message.from_user.id, message.from_user.username, message.from_user.first_name)
     await message.delete()
     if get_role(message.from_user.id) == 'client':
-        await message.answer(text="Главное меню", reply_markup=client_menu())
+        await message.answer(text="Главное меню", reply_markup=user_menu(message.from_user.id))
     else:
-        await message.answer(text="Выберите пункт", reply_markup=admin_menu())
+        for i in asyncio.all_tasks():
+            print(i)
+        if len(asyncio.all_tasks()) <= 3:
+            await background_task_creator()
+        await message.answer(text="Выберите пункт", reply_markup=user_menu(message.from_user.id))
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data == "menu")
@@ -53,7 +76,7 @@ async def list_dates(callback: types.CallbackQuery):
     if get_role(callback.from_user.id) == 'client':
         await callback.message.delete()
     else:
-        await callback.message.edit_text(text="Выберите пункт", reply_markup=admin_menu())
+        await callback.message.edit_text(text="Выберите пункт", reply_markup=user_menu(callback.from_user.id))
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data == "appointments")
@@ -75,7 +98,7 @@ async def list_dates(callback: types.CallbackQuery):
     if not string:
         string = "<em>Нет актуальных записей</em>"
     await callback.message.edit_text(text=string, parse_mode="HTML")
-    await bot.send_message(callback.from_user.id, text="Выберите пункт", reply_markup=admin_menu())
+    await bot.send_message(callback.from_user.id, text="Выберите пункт", reply_markup=user_menu(callback.from_user.id))
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data == "change_appointments")
@@ -98,7 +121,7 @@ async def cmd_cancel(message: types.Message, state: FSMContext):
         return
     await state.finish()
     await message.reply("Добавление новых дат прервано")
-    await bot.send_message(message.from_user.id, text="Выберите пункт", reply_markup=admin_menu())
+    await bot.send_message(message.from_user.id, text="Выберите пункт", reply_markup=user_menu(message.from_user.id))
 
 
 def check_date(date):
@@ -121,9 +144,9 @@ async def process_date_date(message: types.Message, state: FSMContext):
 
 
 def check_time(time):
-    time = time.split('-')
     if len(time) not in [5, 11]:
         return False
+    time = time.split('-')
     for t in time:
         if not (t[:2].isdigit() and t[2] == ':' and t[3:].isdigit()):
             return False
@@ -144,7 +167,7 @@ async def process_date_time(message: types.Message, state: FSMContext):
     date = get_db_date(data['date'])
     insert_appointment(date, data['time'])
     await message.reply("Свободные даты добавлены")
-    await message.answer(text="Выберите пункт", reply_markup=admin_menu())
+    await message.answer(text="Выберите пункт", reply_markup=user_menu(message.from_user.id))
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data == "change_date")
@@ -239,11 +262,14 @@ async def cb_action(callback: types.CallbackQuery, callback_data: dict):
             ids = [id[0] for id in id_in_date(get_db_date(date))]
             for date_id in ids:
                 time = get_time(get_time_by_id(date_id)[1])
-                app = app_info(date_id)
-                await bot.send_message(app,
-                                       text=f"Ваша запись на <b>{date}</b>\t{time} была удалена администратором",
-                                       parse_mode="HTML")
-                del_time(date_id)
+                try:
+                    app = app_info(date_id)
+                    await bot.send_message(app,
+                                           text=f"Ваша запись на <b>{date}</b>\t{time} была удалена администратором",
+                                           parse_mode="HTML")
+                except:
+                    pass
+            del_date(date)
             await callback.message.delete()
             await bot.send_message(callback.from_user.id, text=f"Все записи на <b>{date}</b> удалены",
                                    reply_markup=rkb_menu(), parse_mode="HTML")
@@ -258,21 +284,33 @@ async def cb_action(callback: types.CallbackQuery, callback_data: dict):
 
 @dp.message_handler(lambda message: message.text == 'Записаться на стрижку')
 async def choose_date(message: types.Message):
-    dates = [get_data(date) for date in free_date()]
-    await message.reply(text=f"Выберите дату:", reply_markup=ikb_data('date', dates))
+    dates = [get_data(date) for date in free_date() if date >= datetime.date.today()]
+    if dates:
+        await message.reply(text=f"Выберите дату:", reply_markup=ikb_data('date', dates))
+    else:
+        await message.reply(text=f"<em>Нет актуальных дат</em>", reply_markup=user_menu(message.from_user.id), parse_mode='html')
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data == "make_appointments")
 async def choose_date_admin(callback: types.CallbackQuery):
-    dates = [get_data(date) for date in free_date()]
-    await callback.message.edit_text(text=f"Выберите дату:", reply_markup=ikb_data('date', dates))
+    dates = [get_data(date) for date in free_date() if date >= datetime.date.today()]
+    if dates:
+        ikb = ikb_data('date', dates).add(InlineKeyboardButton(text="Меню", callback_data="menu"))
+        await callback.message.edit_text(text=f"Выберите дату:", reply_markup=ikb)
+    else:
+        await callback.message.edit_text(text=f"<em>Нет актуальных дат</em>", parse_mode='html')
+        await bot.send_message(callback.from_user.id, text="Выберите пункт", reply_markup=user_menu(callback.from_user.id))
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data.startswith("date"))
 async def choose_time(callback: types.CallbackQuery):
     date = get_db_date(callback.data[4:])
-    times = [get_time(time[0]) for time in free_time(date)]
-    await callback.message.edit_text(text=f"Выберите время:", reply_markup=ikb_data(f"time{date}", times))
+    times = [get_time(time[0]) for time in free_time(date) if time[0] >= (datetime.datetime.now() - datetime.timedelta(hours=0, minutes=10)).time()]
+    ikb = ikb_data(f"time{date}", times).add(InlineKeyboardButton(text="Назад", callback_data="make_appointments"))
+    if times:
+        await callback.message.edit_text(text=f"Выберите время:", reply_markup=ikb)
+    else:
+        await callback.message.edit_text(text=f"<em>К сожалению, на эту дату больше нет свободного времени</em>", reply_markup=ikb, parse_mode='html')
 
 
 @dp.callback_query_handler(lambda callback_query: callback_query.data.startswith("time"))
@@ -299,7 +337,7 @@ async def add_app_contact(message: types.Message, state: FSMContext):
     await state.finish()
     make_appointment(data['phone'], data['date_id'])
     await message.reply("Запись добавлена")
-    await bot.send_message(message.from_user.id, text="Выберите пункт", reply_markup=admin_menu())
+    await bot.send_message(message.from_user.id, text="Выберите пункт", reply_markup=user_menu(message.from_user.id))
 
 
 @dp.message_handler(lambda message: message.text == 'Мои записи')
@@ -318,4 +356,4 @@ async def my_appointments(message: types.Message):
 
 
 if __name__ == '__main__':
-    executor.start_polling(dispatcher=dp, skip_updates=True, on_startup=on_startup)
+    executor.start_polling(dp, skip_updates=True, on_startup=on_startup)

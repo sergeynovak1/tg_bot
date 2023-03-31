@@ -21,10 +21,13 @@ def get_time(time):
 def insert_appointment(date, time):
     x = []
     start_time = time[:5] + ':00'
-    end_time = time[6:] + ':00'
-    while datetime.datetime.strptime(end_time, '%H:%M:%S') >= (datetime.datetime.strptime(start_time,'%H:%M:%S') + datetime.timedelta(hours=0, minutes=30)):
+    if len(time)>5:
+        end_time = time[6:] + ':00'
+        while datetime.datetime.strptime(end_time, '%H:%M:%S') >= (datetime.datetime.strptime(start_time,'%H:%M:%S') + datetime.timedelta(hours=0, minutes=30)):
+            x.append(datetime.datetime.strptime(start_time, '%H:%M:%S').time())
+            start_time = str((datetime.datetime.strptime(start_time, '%H:%M:%S') + datetime.timedelta(hours=0, minutes=30)).time())
+    else:
         x.append(datetime.datetime.strptime(start_time, '%H:%M:%S').time())
-        start_time = str((datetime.datetime.strptime(start_time, '%H:%M:%S') + datetime.timedelta(hours=0, minutes=30)).time())
     for z in x:
         create_date(date, z)
 

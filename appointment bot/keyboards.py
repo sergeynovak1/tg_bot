@@ -1,16 +1,24 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.utils.callback_data import CallbackData
 
+from database import get_role
+
 callback_date = CallbackData('real_del_time', 'action', 'data')
 
 
-def admin_menu():
-    ikb = InlineKeyboardMarkup()
-    ikb.add(
-        InlineKeyboardButton(text="Настроить расписание", callback_data="change_appointments")).add(
-        InlineKeyboardButton(text="Посмотреть записи", callback_data="appointments")).add(
-        InlineKeyboardButton(text="Записать на стрижку", callback_data="make_appointments")).add(
-        InlineKeyboardButton(text="Сделать рассылку", callback_data=" "))
+def user_menu(user_id):
+    if get_role(user_id) == 'admin':
+        ikb = InlineKeyboardMarkup()
+        ikb.add(
+            InlineKeyboardButton(text="Настроить расписание", callback_data="change_appointments")).add(
+            InlineKeyboardButton(text="Посмотреть записи", callback_data="appointments")).add(
+            InlineKeyboardButton(text="Записать на стрижку", callback_data="make_appointments")).add(
+            InlineKeyboardButton(text="Сделать рассылку", callback_data=" "))
+    else:
+        ikb = ReplyKeyboardMarkup(resize_keyboard=True)
+        ikb.add(
+            KeyboardButton(text="Записаться на стрижку")).add(
+            KeyboardButton(text="Мои записи"))
     return ikb
 
 
@@ -19,6 +27,12 @@ def client_menu():
     ikb.add(
         KeyboardButton(text="Записаться на стрижку")).add(
         KeyboardButton(text="Мои записи"))
+    return ikb
+
+
+def menu():
+    ikb = InlineKeyboardMarkup()
+    ikb.add(InlineKeyboardButton(text="Меню", callback_data="menu"))
     return ikb
 
 
