@@ -107,7 +107,7 @@ async def list_dates(callback: types.CallbackQuery):
 @dp.callback_query_handler(lambda callback_query: callback_query.data == "appointments")
 @admin
 async def list_dates(callback: types.CallbackQuery):
-    dates = [get_data(date) for date in all_date()]
+    dates = [get_data(date) for date in all_date() if date >= datetime.date.today()]
     string = ''
     for date in dates:
         string += f"<b>{date}\t</b><em>\n"
