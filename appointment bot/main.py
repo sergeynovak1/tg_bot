@@ -42,7 +42,7 @@ async def on_startup(_):
 def admin(func):
     async def wrapper(message):
         if get_role(message['from']['id']) != 'admin':
-            return await message.reply("У вас нет прав на это")
+            return await message.reply("<b>У вас нет прав на это</b>", parse_mode='html')
         return await func(message)
     return wrapper
 
@@ -240,12 +240,15 @@ async def try_del_app(message: types.Message):
     date_id = message.text[4:]
     date = get_data(get_time_by_id(date_id)[0])
     time = get_time(get_time_by_id(date_id)[1])
-    if get_role(message.from_user.id) == 'admin':
-        text = f"Вы действительно хотите удалить запись клиента на <b>{date}</b> {time}?"
+    if get_role(message.from_user.id) == 'admin' or app_info(date_id) == message.from_user.id:
+        if get_role(message.from_user.id) == 'admin':
+            text = f"Вы действительно хотите удалить запись клиента на <b>{date}</b> {time}?"
+        else:
+            text = f"Вы действительно хотите удалить запись на <b>{date}</b> {time}?"
+        await message.delete()
+        await message.answer(text=text, reply_markup=ikb_confirm_action('rem_app', date_id), parse_mode="HTML")
     else:
-        text = f"Вы действительно хотите удалить запись на <b>{date}</b> {time}?"
-    await message.delete()
-    await message.answer(text=text, reply_markup=ikb_confirm_action('rem_app', date_id), parse_mode="HTML")
+        await message.answer(text='<b>Вы не можете удалить чужую запись</b>', reply_markup=user_menu(message.from_user.id), parse_mode="HTML")
 
 
 @dp.callback_query_handler(callback_date.filter())
@@ -263,10 +266,9 @@ async def cb_action(callback: types.CallbackQuery, callback_data: dict):
                 await bot.send_message(app, text=f"Ваша запись на <b>{date}</b>\t{time} была удалена администратором", parse_mode="HTML")
             except:
                 pass
-            finally:
-                remove_appointment(date_id)
         else:
             await callback.message.edit_text(text=f"Ваша запись на <b>{date}</b>\t{time} удалена", parse_mode="HTML")
+        remove_appointment(date_id)
     if get_role(callback.from_user.id) == 'admin':
         if callback_data['action'] == 'del_time':
             date_id = callback_data['data']

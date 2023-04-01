@@ -95,7 +95,7 @@ def get_app_by_name(user_id):
 
 
 def remove_appointment(date_id):
-    cur.execute("UPDATE dates SET client_id=null WHERE date_id=%s", (date_id,))
+    cur.execute("UPDATE dates SET client_id=null, another_data=null WHERE date_id=%s", (date_id,))
     conn.commit()
 
 
