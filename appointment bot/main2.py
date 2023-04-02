@@ -1,6 +1,8 @@
 import datetime
 
-from database import create_date
+from database import create_date, get_appointment_by_date_time
+from config import duration_time
+
 
 def get_db_date(date):
     return f"{date[3:]}.{date[:2]}.{datetime.datetime.now().year}"
@@ -23,11 +25,14 @@ def insert_appointment(date, time):
     start_time = time[:5] + ':00'
     if len(time)>5:
         end_time = time[6:] + ':00'
-        while datetime.datetime.strptime(end_time, '%H:%M:%S') >= (datetime.datetime.strptime(start_time,'%H:%M:%S') + datetime.timedelta(hours=0, minutes=30)):
+        while datetime.datetime.strptime(end_time, '%H:%M:%S') >= (datetime.datetime.strptime(start_time,'%H:%M:%S') + datetime.timedelta(minutes=duration_time)):
             x.append(datetime.datetime.strptime(start_time, '%H:%M:%S').time())
-            start_time = str((datetime.datetime.strptime(start_time, '%H:%M:%S') + datetime.timedelta(hours=0, minutes=30)).time())
+            start_time = str((datetime.datetime.strptime(start_time, '%H:%M:%S') + datetime.timedelta(minutes=duration_time)).time())
     else:
         x.append(datetime.datetime.strptime(start_time, '%H:%M:%S').time())
     for z in x:
-        create_date(date, z)
+        if not get_appointment_by_date_time(date, z):
+            create_date(date, z)
+
+
 

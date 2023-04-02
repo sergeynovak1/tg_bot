@@ -89,7 +89,7 @@ def get_name_by_id(user_id):
     return cur.fetchone()[0]
 
 
-def get_app_by_name(user_id):
+def get_app_by_name(user_id, date):
     cur.execute("SELECT date_id, date, time FROM dates WHERE client_id = %s", (user_id,))
     return cur.fetchall()
 
@@ -107,3 +107,13 @@ def app_info(date_id):
 def id_in_date(date):
     cur.execute("SELECT date_id FROM dates WHERE date = %s", (date,))
     return cur.fetchall()
+
+
+def delete_empty_appointment(date):
+    cur.execute("DELETE FROM dates WHERE date < %s AND client_id is null AND another_data is null", (date, ))
+    conn.commit()
+
+
+def data_for_reminder(date, start_time, end_time):
+    cur.execute("SELECT client_id, time from dates where date=%s and time>=%s and time<%s", (date, start_time, end_time, ))
+    return [(item[0], item[1]) for item in cur.fetchall() if item[0] != None]

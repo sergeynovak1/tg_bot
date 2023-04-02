@@ -8,12 +8,12 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 
 import datetime
 
-from config import TOKEN
+from config import TOKEN, reminder_time, duration_time
 from keyboards import user_menu, client_menu, admin_change_dates, ikb_data, cancel, rkb_menu, ikb_confirm_action, \
     callback_date
 from database import create_db, create_user, get_role, create_date, free_date, free_time, del_time, get_time_by_id, \
     del_date, all_date, all_time, get_appointment_by_date_time, make_appointment, get_name_by_id, get_app_by_name, \
-    remove_appointment, app_info, id_in_date, user_exist, check_appointment
+    remove_appointment, app_info, id_in_date, user_exist, check_appointment, delete_empty_appointment, data_for_reminder
 from main2 import get_db_date, get_data, get_time, insert_appointment
 
 
@@ -37,6 +37,9 @@ class UserData(StatesGroup):
 
 async def on_startup(_):
     create_db()
+    asyncio.create_task(background_on_action())
+    asyncio.create_task(clear_empty())
+    asyncio.create_task(reminder())
 
 
 def admin(func):
@@ -47,6 +50,20 @@ def admin(func):
     return wrapper
 
 
+async def clear_empty():
+    while True:
+        delete_empty_appointment(f'{datetime.date.today()}')
+        await asyncio.sleep(86400)
+
+
+async def reminder():
+    while True:
+        rem = data_for_reminder(f'{datetime.date.today()}', f'{(datetime.datetime.now() + datetime.timedelta(hours=reminder_time)).time()}', f'{(datetime.datetime.now() + datetime.timedelta(hours=reminder_time+1)).time()}')
+        for r in rem:
+            await bot.send_message(r[0], text=f'У вас сегодня запись на стрижку на <b>{get_time(r[1])}</b>', parse_mode='html')
+        await asyncio.sleep(duration_time*60)
+
+
 async def background_on_action() -> None:
     """background task which is created when user asked"""
     i = 0
@@ -54,11 +71,6 @@ async def background_on_action() -> None:
         i += 1
         await asyncio.sleep(3)
         print("Action!", i)
-
-
-async def background_task_creator() -> None:
-    """Creates background tasks"""
-    asyncio.create_task(background_on_action())
 
 
 @dp.message_handler(commands=['start', 'menu'])
@@ -76,8 +88,6 @@ async def cmd_start(message: types.Message, state: FSMContext):
     elif get_role(message.from_user.id) == 'client':
         await message.answer(text="Главное меню", reply_markup=user_menu(message.from_user.id))
     else:
-        if len(asyncio.all_tasks()) <= 3:
-            await background_task_creator()
         await message.answer(text="Выберите пункт", reply_markup=user_menu(message.from_user.id))
 
 
@@ -198,7 +208,7 @@ async def process_date_time(message: types.Message, state: FSMContext):
 @dp.callback_query_handler(lambda callback_query: callback_query.data == "change_date")
 @admin
 async def list_dates(callback: types.CallbackQuery):
-    dates = [get_data(date) for date in all_date()]
+    dates = [get_data(date) for date in all_date() if date >= datetime.date.today()]
     string = ''
     for date in dates:
         string += f"<b>{date}\t</b> /ddel{date[:2]}{date[3:]}\n<em>"
@@ -378,7 +388,7 @@ async def add_app_contact(message: types.Message, state: FSMContext):
 
 @dp.message_handler(lambda message: message.text == 'Мои записи')
 async def my_appointments(message: types.Message):
-    apps = get_app_by_name(message.from_user.id)
+    apps = get_app_by_name(message.from_user.id, f'{datetime.date.today()}')
     string = ''
     for app in apps:
         date = get_data(app[1])
